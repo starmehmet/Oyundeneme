@@ -25,7 +25,8 @@ public class SurvivalGame : ModuleRules
 			"Slate",
 			"SlateCore",
 			"Json",
-			"JsonUtilities"
+			"JsonUtilities",
+			"AssetRegistry"
 		});
 	}
 }

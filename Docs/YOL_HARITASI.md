@@ -4,7 +4,7 @@
 
 ## Hafta 1–2 · Temel (Sistemler 1–5)
 - [x] UE 5.8 projesi açılıyor, C++ modülü derleniyor (VS 2026 / MSVC **14.50** pinli — bkz. ADR) *(2026-07-21)*
-- [ ] Git + Git LFS + ilk commit — **ACİL: Content/ altında artık 11 gerçek .uasset/.umap var, commit öncesi LFS şart**
+- [x] Git + Git LFS + ilk commit — `git lfs track "*.uasset" "*.umap"` kuruldu, 247 dosya (14 .uasset/.umap LFS üzerinden) commit edilip `https://github.com/starmehmet/Oyundeneme`'ye push edildi *(2026-07-25)*
 - [x] Sistem 1: Zaman (TimeKeeper, DayNightCycle) — 3/3 test + PIE'de canlı güneş dönüşü doğrulandı *(2026-07-21)*
 - [x] Sistem 2: Oyuncu kontrolü (Enhanced Input, üçüncü şahıs kamera) — 4/4 test + PIE canlı WASD/fare doğrulaması *(2026-07-23)*
 - [x] Sistem 3: Etkileşim (trace kanalı, IInteractableInterface) — 7/7 test + PIE canlı doğrulama (`InteractionCount` 0→94) *(2026-07-23)*

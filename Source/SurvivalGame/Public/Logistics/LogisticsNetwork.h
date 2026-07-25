@@ -111,9 +111,15 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Logistics")
 	FOnTransportDelivered OnTransportDelivered;
 
+	/** Sistem #22 (Dev araçları) — `logistics_visualize` konsol komutu bunu açıp kapatır. */
+	void SetVisualizationEnabled(bool bEnabled) { bVisualizationEnabled = bEnabled; }
+
+	bool IsVisualizationEnabled() const { return bVisualizationEnabled; }
+
 private:
 	void RebuildAcceptorCache();
 	void CompleteTransport(int32 Index);
+	void DrawDebugVisualization(float DeltaTime) const;
 
 	UPROPERTY()
 	TArray<TObjectPtr<AStorageNode>> Nodes;
@@ -123,4 +129,6 @@ private:
 
 	UPROPERTY()
 	TArray<FTransportRequest> ActiveTransports;
+
+	bool bVisualizationEnabled = false;
 };

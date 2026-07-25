@@ -235,7 +235,7 @@ namespace
 			: nullptr;
 	}
 
-	AActor* FindPlayerPawn(UWorld* World)
+	AActor* FindResourcePlayerPawn(UWorld* World)
 	{
 		const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 		return PC ? PC->GetPawn() : nullptr;
@@ -248,7 +248,7 @@ namespace
 			[](const TArray<FString>& Args, UWorld* World)
 			{
 				UResourceSimulation* Sim = FindResourceSim(World);
-				AActor* Pawn = FindPlayerPawn(World);
+				AActor* Pawn = FindResourcePlayerPawn(World);
 				if (!Sim || !Pawn || Args.Num() < 1)
 				{
 					UE_LOG(LogSurvivalProduction, Warning, TEXT("Kullanim: resource_register_producer <Rate>"));
@@ -265,7 +265,7 @@ namespace
 			[](const TArray<FString>& Args, UWorld* World)
 			{
 				UResourceSimulation* Sim = FindResourceSim(World);
-				AActor* Pawn = FindPlayerPawn(World);
+				AActor* Pawn = FindResourcePlayerPawn(World);
 				if (!Sim || !Pawn || Args.Num() < 1)
 				{
 					UE_LOG(LogSurvivalProduction, Warning, TEXT("Kullanim: resource_register_consumer <Rate>"));

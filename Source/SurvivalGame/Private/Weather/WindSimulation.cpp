@@ -60,7 +60,7 @@ float UWindSimulation::GetWindLoadOnStructure(const FVector& Position, float Exp
 
 namespace
 {
-	APawn* FindPlayerPawn(UWorld* World)
+	APawn* FindWindPlayerPawn(UWorld* World)
 	{
 		const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 		return PC ? PC->GetPawn() : nullptr;
@@ -74,7 +74,7 @@ namespace
 			{
 				const UGameInstance* GI = World ? World->GetGameInstance() : nullptr;
 				const UWindSimulation* Sim = GI ? GI->GetSubsystem<UWindSimulation>() : nullptr;
-				const APawn* Pawn = FindPlayerPawn(World);
+				const APawn* Pawn = FindWindPlayerPawn(World);
 				if (!Sim || !Pawn)
 				{
 					return;

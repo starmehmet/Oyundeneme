@@ -10,6 +10,7 @@
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
+#include "DevTools/ScopedTimer.h"
 
 void UWorldPartitionHelper::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -60,6 +61,13 @@ void UWorldPartitionHelper::RebuildCellRegistry()
 	{
 		return;
 	}
+
+	// Sistem #25 (Performans profiling) — bu fonksiyon daha once (profile_spawn_stress
+	// incelemesinde) "kare-bolumlemesiz periyodik tarama, olculmedi" olarak dokumante edilmisti;
+	// ilk gercek olcum burada. Esik (5ms) EvaluationInterval=1sn'de bir calistigi icin tek
+	// seferlik bir gecikme olarak bile fark edilebilir olur diye secildi.
+	SURVIVAL_SCOPED_TIMER_WARN("WorldPartitionHelper::RebuildCellRegistry", 5.0f);
+
 	const USurvivalWorldPartitionSettings* Settings = GetDefault<USurvivalWorldPartitionSettings>();
 
 	// Yeniden taramalar arasinda YUKLU/BOSALTILMIS durumunu KORUR (aksi halde her tarama

@@ -1,0 +1,50 @@
+# CI — Derleme + Otomasyon Testleri
+#
+# NOT: UE5 derlemesi GitHub'ın barındırılan runner'larında ÇALIŞMAZ (engine kurulu değil,
+# lisans + 100GB+ boyut). Bu workflow self-hosted, UE 5.8 kurulu bir Windows runner bekler.
+# Runner kurulana kadar workflow yalnızca elle tetiklenebilir (workflow_dispatch).
+#
+# Runner kurulumu: repo Settings → Actions → Runners → New self-hosted runner (Windows x64),
+# makinede UE 5.8 + VS 2026 (MSVC v145) kurulu olmalı, UE_PATH engine köküne işaret etmeli.
+
+name: CI
+
+on:
+  workflow_dispatch:
+  # Self-hosted runner hazır olunca aç:
+  # push:
+  #   branches: [main, develop]
+  # pull_request:
+  #   branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: [self-hosted, windows, ue5]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Derle (Development Editor)
+        shell: pwsh
+        run: |
+          & "$env:UE_PATH\Engine\Build\BatchFiles\Build.bat" SurvivalGameEditor Win64 Development -project="$env:GITHUB_WORKSPACE\SurvivalGame.uproject" -WaitMutex
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Otomasyon testleri
+        shell: pwsh
+        run: |
+          & "$env:UE_PATH\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "$env:GITHUB_WORKSPACE\SurvivalGame.uproject" `
+            -ExecCmds="Automation RunTests SurvivalGame; Quit" `
+            -TestExit="Automation Test Queue Empty" `
+            -ReportOutputPath="$env:GITHUB_WORKSPACE\TestResults" `
+            -nullrhi -unattended -nop4 -nosplash
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Test raporunu yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/

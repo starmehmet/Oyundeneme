@@ -1,0 +1,49 @@
+# ==== Unreal Engine 5 ====
+# Derlenen / uretilen dosyalar — asla commit etme
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Packaged/
+
+# Editor kullanici ayarlari
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+.vs/
+.vscode/
+.idea/
+
+# Plugin ara dosyalari
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# Build artefaktlari
+*.target
+*.modules
+*.version
+
+# ==== OS ====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==== Araclar ====
+Tools/**/bin/
+Tools/**/obj/
+*.log
+*.tmp
+
+# NOT: Content/ altindaki .uasset/.umap dosyalari COMMIT EDILIR.
+# Buyuk binary'ler icin Git LFS kullan: git lfs track "*.uasset" "*.umap"
+
+# ==== Test/oturum ciktilari (proje icerigi degil, her calistirmada yeniden uretilir) ====
+TestResults/
+*_capture.png
+build_log.txt
+test_log.txt

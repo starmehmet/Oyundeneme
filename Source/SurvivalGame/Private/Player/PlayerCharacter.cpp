@@ -6,10 +6,13 @@
 #include "Construction/ConstructionComponent.h"
 #include "Player/HealthComponent.h"
 #include "UI/HUDController.h"
+#include "Save/SaveGameManager.h"
+#include "SurvivalGame.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
+#include "Engine/GameInstance.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -50,6 +53,37 @@ void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	CameraManagerComp->RegisterCameraRig(CameraBoom, FollowCamera);
+	HealthComp->OnDeath.AddDynamic(this, &APlayerCharacter::HandleDeath);
+}
+
+void APlayerCharacter::HandleDeath()
+{
+	UE_LOG(LogSurvival, Log, TEXT("Oyuncu oldu — son kayit noktasina donuluyor"));
+	UGameInstance* GI = GetGameInstance();
+	USaveGameManager* SaveManager = GI ? GI->GetSubsystem<USaveGameManager>() : nullptr;
+	if (!SaveManager || !SaveManager->RevertToLastSave())
+	{
+		// Inceleme bulgusu (kritik): donulecek bir kayit YOKSA (oyunun ilk olumu), oyuncuyu
+		// kalici/iyilesemez 0-HP durumunda birakmak SOFT-LOCK olur — TakeDamage/Heal ikisi de
+		// IsDead() true iken kalici olarak no-op olur, hicbir sistem bunu kurtaramaz. Donulecek
+		// bir kontrol noktasi yoksa, tam canla devam ettir (bu ayrica bir sonraki otomatik
+		// kaydetmenin 0-HP bir "olu" anlik goruntuyu meshru kontrol noktasi sanip kaydetmesini
+		// de yapisal olarak imkansiz kilar — health hicbir Tick sinirini 0'da gecmiyor).
+		UE_LOG(LogSurvival, Warning, TEXT("Oyuncu oldu ama kayit noktasi yok — tam canla devam ediliyor"));
+		HealthComp->SetCurrentHealthForLoad(HealthComp->GetMaxHealth());
+	}
+
+	// PIE'de CANLI bulunan bulgu: donus BASARILI (kayittan) da olsa, BASARISIZ (fallback) da
+	// olsa, VucutSicakligi hala tehlikeli kalabilir (basarili yolda kayittaki deger neyse o
+	// geri yuklenir — o kayit bile "cani geri geldi ama hala donuyor" anindaki bir karede
+	// alinmis olabilir; fallback yolunda ise hic dokunulmaz). Su an kod tabanindaki TEK hasar
+	// kaynagi hipotermi/asiri-sicak oldugundan (TakeDamage'in tek cagrildigi yer
+	// TemperatureSimulation), bir sonraki karede ayni sebeple tekrar OnDeath tetiklenip sonsuz
+	// olum-dirilis donguesune girilebilir (canli PIE testinde onlarca tekrarla dogrulandi, hem
+	// fallback hem basarili-yukleme yollarinda). VucutSicakligini HER donus turunde
+	// PlayerCharacter'in kendi spawn varsayilanina (37 derece) sifirlamak bu dongueyu kirar —
+	// baska bir olum sebebi eklenirse bu varsayim yeniden degerlendirilmeli.
+	SetBodyTemperature(37.0f);
 }
 
 void APlayerCharacter::ApplyMoveInput(const FVector2D& AxisValue)

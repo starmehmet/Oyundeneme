@@ -113,7 +113,12 @@ bool USaveGameManager::ApplySaveDataToLiveSystems(const FGameSaveData& Data)
 		Clock->SetTotalGameSeconds(Data.TotalGameSeconds);
 	}
 
-	Player->SetActorLocation(Data.PlayerPosition);
+	// Inceleme bulgusu: SetActorLocation, TeleportSucceeded->OnTeleported zincirini tetiklemez —
+	// UCharacterMovementComponent'in Velocity/MovementMode'u olum anindaki degerde kalir (oyuncu
+	// dusuyorsa/yuruyor-durumdaysa yeni konumda ayni hizla kaymaya/dusmeye devam eder) VE hedefte
+	// (kayit sonrasi insa edilmis olabilecek) geometriye gomulme kontrolu yapilmaz. TeleportTo
+	// ikisini de motor kaynagindan dogrulanan sekilde cozer: TeleportPhysics + FindTeleportSpot.
+	Player->TeleportTo(Data.PlayerPosition, Player->GetActorRotation());
 	Player->SetBodyTemperature(Data.PlayerBodyTemperature);
 	if (UHealthComponent* Health = Player->GetHealthComponent())
 	{
@@ -145,6 +150,7 @@ bool USaveGameManager::SaveGame(const FString& SlotName)
 	}
 
 	UE_LOG(LogSurvival, Log, TEXT("SaveGame('%s'): basarili (%d bayt sikistirilmis)"), *SlotName, Compressed.Num());
+	LastSavedSlotName = SlotName;
 	return true;
 }
 
@@ -170,6 +176,21 @@ bool USaveGameManager::LoadGame(const FString& SlotName)
 	const bool bApplied = ApplySaveDataToLiveSystems(Loaded->Payload);
 	UE_LOG(LogSurvival, Log, TEXT("LoadGame('%s'): %s"), *SlotName, bApplied ? TEXT("basarili") : TEXT("kismi basarili (oyuncu bulunamadi)"));
 	return bApplied;
+}
+
+bool USaveGameManager::RevertToLastSave()
+{
+	const USaveGameManagerSettings* Settings = GetDefault<USaveGameManagerSettings>();
+	const FString SlotToLoad = !LastSavedSlotName.IsEmpty() ? LastSavedSlotName : Settings->AutosaveSlotName;
+
+	if (!DoesSaveExist(SlotToLoad))
+	{
+		UE_LOG(LogSurvival, Warning, TEXT("RevertToLastSave: kayit noktasi yok ('%s'), geri donulemedi"), *SlotToLoad);
+		return false;
+	}
+
+	UE_LOG(LogSurvival, Log, TEXT("RevertToLastSave: '%s' yuvasina donuluyor"), *SlotToLoad);
+	return LoadGame(SlotToLoad);
 }
 
 bool USaveGameManager::DeleteSave(const FString& SlotName)

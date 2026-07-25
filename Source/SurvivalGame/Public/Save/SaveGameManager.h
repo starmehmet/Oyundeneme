@@ -59,6 +59,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool DeleteSave(const FString& SlotName);
 
+	/**
+	 * En son BAŞARIYLA yazılan yuvaya (otomatik veya elle, hangisi bu oturumda en son
+	 * olduysa) döner. Bu oturumda hiç kaydetme olmadıysa `Settings->AutosaveSlotName`'i
+	 * dener (önceki bir oturumdan kalmış olabilir). Hiçbiri yoksa `false` döner, HİÇBİR
+	 * ŞEYİ değiştirmez (`LoadGame` ile aynı sözleşme).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool RevertToLastSave();
+
 	UFUNCTION(BlueprintPure, Category = "Save")
 	bool DoesSaveExist(const FString& SlotName) const;
 
@@ -72,4 +81,5 @@ private:
 
 	float TotalPlayTimeSeconds = 0.0f;
 	float TimeSinceLastAutosave = 0.0f;
+	FString LastSavedSlotName;
 };

@@ -67,6 +67,11 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	/** HealthComp->OnDeath'e bağlı — son kayıt noktasına döner (bkz. USaveGameManager::RevertToLastSave). */
+	UFUNCTION()
+	void HandleDeath();
+
+private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<USpringArmComponent> CameraBoom;
 

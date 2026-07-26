@@ -1,4 +1,4 @@
-// Sistem #22 (Dev araçları) — MIMARI.md'nin "lojistik görselleştirici" maddesi. Gerçek çizim
+﻿// Sistem #22 (Dev araçları) — MIMARI.md'nin "lojistik görselleştirici" maddesi. Gerçek çizim
 // mantığı Sistem #8'in kendi dosyasında yaşıyor (ULogisticsNetwork::DrawDebugVisualization,
 // düğüm/aktif-taşıma verisine private erişim gerektiriyor) — bu dosya yalnızca dev-araç
 // yüzeyini (konsol komutu) DevTools altında topluyor, ProfilingCommands.cpp ile aynı gerekçe.

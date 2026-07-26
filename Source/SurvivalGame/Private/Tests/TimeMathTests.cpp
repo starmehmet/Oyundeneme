@@ -107,4 +107,22 @@ bool FTimeMathDaylightFactorTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTimeMathFrameDeltaClampTest,
+	"SurvivalGame.Time.TimeMath.DeltaTimeKelepcesi",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FTimeMathFrameDeltaClampTest::RunTest(const FString& Parameters)
+{
+	using namespace SurvivalTime;
+
+	// Inceleme bulgusu (Sistem #29 PIE testi): motor thread'i bloke olup bir sonraki Tick'e
+	// dev bir DeltaTime gelirse (donma/hitch), saat tek karede saatlerce ileri sicramamali.
+	TestEqual(TEXT("normal kare (0.016sn) degismez"), ClampFrameDeltaTime(0.016f), 0.016f, 1e-6f);
+	TestEqual(TEXT("sinirda (1.0sn) degismez"), ClampFrameDeltaTime(1.0f), 1.0f, 1e-6f);
+	TestEqual(TEXT("dev sicrama (5832sn ~= 97dk donma) kelepcelenir"), ClampFrameDeltaTime(5832.0f), MaxBelievableFrameDeltaTime, 1e-6f);
+	TestEqual(TEXT("negatif DeltaTime 0'a kelepcelenir"), ClampFrameDeltaTime(-1.0f), 0.0f, 1e-6f);
+
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS

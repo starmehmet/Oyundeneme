@@ -1,4 +1,4 @@
-// Sistem #24 (Content pipeline) — MIMARI.md'nin bu sistem icin hic C++ sinif taslagi YOKTU
+﻿// Sistem #24 (Content pipeline) — MIMARI.md'nin bu sistem icin hic C++ sinif taslagi YOKTU
 // (butun diger sistemlerin aksine, dogrudan "Uygulama Surumu" notuna gecmis), yalnizca
 // isimlendirme kurallari + "asset validasyon" ihtiyaci. FBX/PSD import-otomasyonu BILINCLI
 // olarak YAZILMADI — projede gercek 3D model/doku/animasyon icerigi yok (Content/ Sistem
@@ -29,6 +29,8 @@
 #include "AssetRegistry/IAssetRegistry.h"
 #include "AssetRegistry/AssetData.h"
 #include "Engine/DataAsset.h"
+#include "Engine/DataTable.h"
+#include "Harvesting/HarvestNodeDefinition.h"
 
 namespace
 {
@@ -127,6 +129,49 @@ namespace
 				UE_LOG(LogSurvival, Log,
 					TEXT("content_validate: %d varlik tarandi, %d/%d kural-tanimli varlik uygun (%d ihlal, %d varlik icin kural yok)"),
 					Assets.Num(), Checked - Violations, Checked, Violations, Assets.Num() - Checked);
+
+				// Sistem #29 (Hasat Dugumleri) — Docs/MIMARI.md #29'da vaat edilen entegrasyon: DT_HarvestNodes'un
+				// her satirinin YieldItemID'si DT_Items'ta gercekten var mi (Recipes/Buildings/ProductionRecipes
+				// icin zaten elle yapilan capraz kontrolun otomatiklestirilmis hali). Ikisi de /Game altinda zaten
+				// taranmis Assets listesinden bulunur — ayrica bir AssetRegistry sorgusu gerekmez.
+				const UDataTable* HarvestTable = nullptr;
+				const UDataTable* ItemTable = nullptr;
+				for (const FAssetData& Asset : Assets)
+				{
+					if (Asset.AssetClassPath.GetAssetName() != FName(TEXT("DataTable")))
+					{
+						continue;
+					}
+					if (Asset.AssetName == FName(TEXT("DT_HarvestNodes")))
+					{
+						HarvestTable = Cast<UDataTable>(Asset.GetAsset());
+					}
+					else if (Asset.AssetName == FName(TEXT("DT_Items")))
+					{
+						ItemTable = Cast<UDataTable>(Asset.GetAsset());
+					}
+				}
+
+				if (HarvestTable && ItemTable)
+				{
+					int32 RefChecked = 0;
+					int32 RefViolations = 0;
+					HarvestTable->ForeachRow<FHarvestNodeDefinition>(TEXT("content_validate::HarvestRef"),
+						[&](const FName& RowName, const FHarvestNodeDefinition& Row)
+						{
+							++RefChecked;
+							if (!ItemTable->GetRowMap().Contains(Row.YieldItemID))
+							{
+								++RefViolations;
+								UE_LOG(LogSurvival, Warning,
+									TEXT("content_validate: DT_HarvestNodes['%s'].YieldItemID '%s' DT_Items'ta bulunamadi"),
+									*RowName.ToString(), *Row.YieldItemID.ToString());
+							}
+						});
+					UE_LOG(LogSurvival, Log,
+						TEXT("content_validate: DT_HarvestNodes referans butunlugu: %d satir tarandi, %d ihlal"),
+						RefChecked, RefViolations);
+				}
 			}));
 }
 #endif // WITH_EDITOR

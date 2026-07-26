@@ -72,7 +72,12 @@ UWorld* UTimeKeeper::GetTickableGameObjectWorld() const
 
 void UTimeKeeper::Tick(float DeltaTime)
 {
-	TotalGameSeconds += static_cast<double>(DeltaTime) * TimeScale;
+	// Inceleme bulgusu (Sistem #29 PIE testi sirasinda bulundu, motor thread'inin MCP
+	// cagrilarina yanit verirken bloke olmasi sonucu gozlemlendi): DeltaTime kelepcelenmeden
+	// dogrudan eklenirse, bir donma/hitch sonrasi TEK karede saat saatlerce ileri sicrayabilir
+	// (x10 olcekte ~97 dk'lik gercek-zaman donmasi ~16 saatlik oyun-ici sicramaya donustu,
+	// canli PIE'de dogrulandi). SurvivalTime::ClampFrameDeltaTime bunu onler.
+	TotalGameSeconds += static_cast<double>(SurvivalTime::ClampFrameDeltaTime(DeltaTime)) * TimeScale;
 	BroadcastRollovers();
 }
 

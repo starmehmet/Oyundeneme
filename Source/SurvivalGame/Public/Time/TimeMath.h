@@ -14,6 +14,22 @@ namespace SurvivalTime
 	inline constexpr double SecondsPerHour = 3600.0;
 	inline constexpr double SecondsPerDay = 86400.0;
 
+	/**
+	 * Bir kare icin "gercekci" sayilan azami gercek-zamanli DeltaTime (saniye). Sistem #29
+	 * PIE testi sirasinda bulunan gercek hata: editor MCP cagrilarina yanit verirken oyun
+	 * thread'i bloke olabiliyor, bir sonraki Tick'e DEV bir DeltaTime (dakikalarca) geliyor —
+	 * TimeKeeper bunu dogrudan TotalGameSeconds'a eklerse (x10 olcekte) oyun-ici saat tek
+	 * karede saatlerce ileri sicriyor. FMath::Min ile ClampMin/Max degil DOGRUDAN bir ust
+	 * sinir — bu deger "gercek oynanista asla olmaz, yalnizca donma/hitch belirtisi" varsayimi.
+	 */
+	inline constexpr float MaxBelievableFrameDeltaTime = 1.0f;
+
+	/** DeltaTime'i MaxBelievableFrameDeltaTime'a kelepceler (donma/hitch sonrasi sicrama korumasi). */
+	inline float ClampFrameDeltaTime(float DeltaTime)
+	{
+		return FMath::Clamp(DeltaTime, 0.0f, MaxBelievableFrameDeltaTime);
+	}
+
 	/** Günün dakikası, kesirli [0, 1440). Negatif girişte de geçerli aralığa sarar. */
 	inline double MinuteOfDayFloat(double TotalGameSeconds)
 	{

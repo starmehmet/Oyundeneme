@@ -6,6 +6,22 @@
 #
 # Runner kurulumu: repo Settings → Actions → Runners → New self-hosted runner (Windows x64),
 # makinede UE 5.8 + VS 2026 (MSVC v145) kurulu olmalı, UE_PATH engine köküne işaret etmeli.
+#
+# İnceleme bulgusu (motor kaynağından doğrulandı, Developer/AutomationController/Private/
+# AutomationCommandline.cpp): `-TestExit="Automation Test Queue Empty"` yalnızca RunUAT.exe'nin
+# C# katmanının (Programs/AutomationTool) bir konvansiyonu — UnrealEditor-Cmd.exe DOĞRUDAN
+# çağrıldığında bu parametre motor tarafında hiç parse edilmez, sessizce yok sayılır. Gerçek
+# başarı/başarısızlık sinyali `Quit` komutunun kendisi: testler başarısızsa `RequestExitWithStatus`
+# process'i gerçek bir hata koduyla sonlandırır (bu yüzden $LASTEXITCODE kontrolü GEÇERLİ), ama
+# bu çökme/donma senaryolarını (Quit'e hiç ulaşılmadan process ölürse) kapsamaz — bu yüzden CLAUDE.md'nin
+# kuralına uyarak `TestResults\index.json`'daki succeeded/failed/notRun sayıları da AYRICA
+# doğrulanır (aşağıdaki "Test sonucunu doğrula" adımı) — sıfır test eşleşmesi (bozuk filtre)
+# gibi "sessizce yeşil" durumları da yakalamak için.
+#
+# İnceleme bulgusu (canlı CI çalıştırmasında bulundu): `shell: pwsh` bu runner'da "pwsh: command
+# not found" ile başarısız oluyordu — makinede yalnızca Windows PowerShell 5.1 (powershell.exe)
+# kurulu, PowerShell 7 (pwsh.exe) YOK. `shell: powershell` kullanılıyor (Windows PowerShell 5.1'e
+# eşlenir) — betiklerin hiçbiri PS7'ye özgü sözdizimi kullanmıyor, bu yüzden davranış değişmedi.
 
 name: CI
 
@@ -27,20 +43,43 @@ jobs:
           lfs: true
 
       - name: Derle (Development Editor)
-        shell: pwsh
+        shell: powershell
         run: |
           & "$env:UE_PATH\Engine\Build\BatchFiles\Build.bat" SurvivalGameEditor Win64 Development -project="$env:GITHUB_WORKSPACE\SurvivalGame.uproject" -WaitMutex
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Otomasyon testleri
-        shell: pwsh
+        shell: powershell
         run: |
+          if (Test-Path "$env:GITHUB_WORKSPACE\TestResults") {
+            Remove-Item -Recurse -Force "$env:GITHUB_WORKSPACE\TestResults"
+          }
           & "$env:UE_PATH\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "$env:GITHUB_WORKSPACE\SurvivalGame.uproject" `
             -ExecCmds="Automation RunTests SurvivalGame; Quit" `
-            -TestExit="Automation Test Queue Empty" `
             -ReportOutputPath="$env:GITHUB_WORKSPACE\TestResults" `
             -nullrhi -unattended -nop4 -nosplash
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Test sonucunu doğrula (index.json)
+        if: always()
+        shell: powershell
+        run: |
+          $IndexPath = "$env:GITHUB_WORKSPACE\TestResults\index.json"
+          if (-not (Test-Path $IndexPath)) {
+            Write-Error "TestResults\index.json bulunamadi - testler cokme/donma nedeniyle sonuc yazamamis olabilir."
+            exit 1
+          }
+          $Results = Get-Content $IndexPath -Raw | ConvertFrom-Json
+          $Total = $Results.succeeded + $Results.failed + $Results.notRun
+          Write-Output "Sonuc: $($Results.succeeded) basarili, $($Results.failed) basarisiz, $($Results.notRun) calismadi (toplam $Total)"
+          if ($Total -eq 0) {
+            Write-Error "Hic test calismadi (filtre bos/yanlis eslesmis olabilir) - sessiz basari SAYILMAZ."
+            exit 1
+          }
+          if ($Results.failed -gt 0) {
+            Write-Error "$($Results.failed) test basarisiz."
+            exit 1
+          }
 
       - name: Test raporunu yükle
         if: always()

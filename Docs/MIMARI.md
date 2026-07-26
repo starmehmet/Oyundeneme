@@ -1729,10 +1729,145 @@ struct FAchievementDefinition
 
 ---
 
+## 29. HASAT DÜĞÜMLERİ (HARVEST NODES)
+
+**Bağlam:** 2026-07-26'da içerik-hacmi genişletmesi sırasında keşfedilen bir mimari boşluğu kapatır — kodda
+(orijinal Odun/Taş dahil) hiçbir ham madde için dünyada toplama/hasat mekanizması yoktu; tüm eşyalar yalnızca
+zanaat/üretim çıktısı, inşaat tüketimi, önceden-doldurulmuş sandık ya da lojistik taşıma yoluyla var oluyordu
+(bkz. `Docs/YOL_HARITASI.md` ADR 2026-07-26, `Docs/ILERLEME.md` Sistem #27 notu). Bu teknik olarak yeni bir faz
+değil — Faz 1 "dikey dilim"in tamamlayıcı, açık kalmış bir borcudur. Tasarım, 4 ajanlı bağımsız bir tasarım
+paneli (3 bağımsız mimari öneri + motor-kaynağı/kod-tabanı doğrulamalı yargılama-sentez) ile üretildi; panel
+uygulama sırasının **#21/#26/#28'den ÖNCE** olması gerektiğini net bir şekilde vurguladı (gerekçe: Steam'e
+çıkacak bir "hayatta kalma" oyununun temel döngüsü şu an oyun-içi hiç tetiklenmiyor).
+
+**HENÜZ KODLANMADI** — bu bölüm yalnızca tasarım kaydı; uygulama ayrı bir pasoda yapılacak.
+
+**Sorumluluklar:**
+- Dünyada yerleştirilmiş, E-tuşuyla toplanabilen ham-madde noktaları (ağaç, kaya, vb.)
+- Tükenme + kare-bölümlemeli yeniden-doğma (respawn) zamanlayıcısı
+- Envanter kabul kontrolüyle kayıpsız verim aktarımı (dolu envanterde düğüm tükenmez)
+- Veri-güdümlü tür farklılaştırma (v1: davranışsız kanca, v1.5+: alet gereksinimi)
+
+**Temel Sınıflar:**
+```cpp
+UENUM(BlueprintType)
+enum class EHarvestNodeType : uint8
+{
+    Generic, Tree, Rock,
+    // v1'de davranışı DEĞİŞTİRMEZ — yalnızca prompt/ikon seçimi + gelecekteki dallanma kancası
+    // (BuildingDefinition::ConstructionTime'daki "veri duruyor, tüketilmiyor" dürüst-kapsam emsaliyle aynı disiplin)
+};
+
+USTRUCT(BlueprintType)
+struct FHarvestNodeDefinition : public FTableRowBase
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere) EHarvestNodeType NodeType = EHarvestNodeType::Generic;
+    UPROPERTY(EditAnywhere) FName YieldItemID;        // DT_Items satır adı, UItemDatabase ile çözülür, KOPYALANMAZ
+    UPROPERTY(EditAnywhere) int32 YieldCountMin = 1;
+    UPROPERTY(EditAnywhere) int32 YieldCountMax = 1;
+    UPROPERTY(EditAnywhere) int32 HarvestsBeforeDepletion = 1;
+    UPROPERTY(EditAnywhere) float RespawnSeconds = 60.f;
+    UPROPERTY(EditAnywhere) FText InteractionPrompt;   // "Kes", "Kaz" vb.
+    UPROPERTY(EditAnywhere) FString RequiredToolTag;   // v1'de YAZILIR ama OKUNMAZ (v1.5'e kadar bilinçli erteleme)
+};
+
+UCLASS(Config=Game, DefaultConfig)
+class UHarvestNodeDatabaseSettings : public UDeveloperSettings
+{
+    // UItemDatabaseSettings ile birebir aynı desen — Project Settings > Game > Harvest Node Database
+    UPROPERTY(EditAnywhere, Config) TSoftObjectPtr<UDataTable> HarvestNodeTable;
+};
+
+UCLASS()
+class UHarvestNodeDatabase : public UGameInstanceSubsystem
+{
+    // DT_HarvestNodes'u yükler, FName->FHarvestNodeDefinition KOPYA önbelleği kurar (ham işaretçi değil,
+    // UItemDatabase ile aynı desen)
+    bool FindNodeDefinition(FName NodeID, FHarvestNodeDefinition& OutDefinition) const;
+};
+
+UCLASS()
+class AHarvestNode : public AInteractableBase
+{
+    // AInteractableBase'in İLK somut alt sınıfı — sınıfın kendi yorumundaki "toplama noktası" örneği
+    UPROPERTY(EditAnywhere) FName NodeID;   // DT_HarvestNodes satır anahtarı
+
+    virtual bool CanInteract_Implementation(AActor* Interactor) const override;  // Super && !bDepleted
+    virtual void OnInteract_Implementation(AActor* Interactor) override;
+    // OnInteract: SurvivalHarvest::RollYieldCount ile miktar belirlenir, AddItem'in GERÇEK kabul miktarı
+    // kontrol edilir (tam kabul olmazsa şarj düşürülmez, malzeme sessizce kaybolmaz — ResourceSimulation'ın
+    // düzeltilen "sessiz tavan" hatasıyla aynı disiplin). Tükenmede: SetActorHiddenInGame(true) +
+    // SetActorEnableCollision(false) (yalnızca Mesh gizleme DEĞİL — WorldPartitionHelper'ın "gizle,
+    // yok etme" emsaliyle tutarlı) + UHarvestNodeManager::RegisterDepletedNode.
+};
+
+UCLASS()
+class UHarvestNodeManager : public UWorldSubsystem, public FTickableGameObject
+{
+    // ProductionManager/NPCManager ile AYNI iskelet (UGameInstanceSubsystem DEĞİL — dünya yaşam döngüsüne
+    // bağlı olmalı, bu üç dosyadan doğrulandı). Yalnızca TÜKENMİŞ düğümleri SurvivalProduction::ComputeBatchSize
+    // ile round-robin kontrol eder — dolu düğümler bu kümeye hiç girmez. UWorldPartitionHelper::IsPositionLoaded
+    // ile boşaltılmış hücreleri atlar (mutlak GameTime damgası sayesinde kayıp ilerleme olmaz).
+    void RegisterDepletedNode(AHarvestNode* Node);
+    virtual bool IsTickable() const override;   // yalnızca bekleyen tükenmiş düğüm varsa true
+};
+
+namespace SurvivalHarvest   // saf, test edilebilir fonksiyonlar (HarvestMath.h + HarvestMathTests.cpp)
+{
+    int32 RollYieldCount(int32 Min, int32 Max);
+    bool IsRespawnReady(double DepletionGameTime, double CurrentGameTime, float RespawnSeconds);
+}
+```
+
+**Veri:** `DT_HarvestNodes` (yeni DataTable) — v1 tohum satırları MEVCUT ekonomiye bağlanır, yeni item icat
+edilmez: `Agac`→Odun, `Kaya`→Tas (tam olarak "orijinal Odun/Taş bile toplanamıyor" boşluğunu kapatır).
+
+**İsimlendirme kararı:** Kök **"Harvest"** — "Resource" kelimesi KULLANILMAZ (`Production/ResourceSimulation`
+zaten enerji/termal/yakıt anlamında bu kelimeyi sahipleniyor, çakışma/kavram karışıklığı riski gerçek). Klasör:
+`Source/SurvivalGame/{Public,Private}/Harvesting/`. **Kodlamaya başlamadan önce**, "Harvest" kökünün UE 5.8
+motor kaynağında native bir sınıfla çakışmadığı ayrıca doğrulanmalı (WorldPartitionSettings emsali gereği —
+unreal-engine-dev disiplini: bu tasarım yalnızca proje-içi çakışmanın yokluğunu doğruladı, motor-geneli
+çakışmayı VARSAYMIYOR).
+
+**Entegrasyon noktaları:**
+- **Interaction (#3):** `AHarvestNode : public AInteractableBase` — E-tuşu/trace/`ECC_GameTraceChannel1`
+  pipeline'ı hiç değişmeden kullanılır.
+- **Items (#5):** `YieldItemID`, `UItemDatabase::FindItem` ile çözülür; `EItemCategory`'e yeni değer EKLENMEZ
+  (sabit 4 değer korunur).
+- **Inventory (#4):** `AddItem`'ın dönüş değeri (gerçek kabul miktarı) kontrol edilir.
+- **Production (#9):** `SurvivalProduction::ComputeBatchSize` doğrudan yeniden kullanılır (NPCManager'ın
+  zaten yaptığı gibi) — yeni bir dilim-boyutu formülü icat edilmez.
+- **World Partition (#18):** `UWorldPartitionHelper::IsPositionLoaded` ile boşaltılmış hücrelerdeki tükenmiş
+  düğümler atlanır/telafi edilir.
+- **Save (#17):** v1'de BİLİNÇLİ entegre EDİLMEZ — Construction/Production/Logistics/Kaynak/Hava/NPC/Görev
+  durumu da henüz kaydedilmiyor (`SaveDataTypes.h`'nin mevcut kararıyla tutarlı); gelecekte Sistem #17'nin
+  TEK SEFERLİK genel genişlemesiyle birlikte ele alınmalı, Harvesting'e özel bir istisna açılmamalı.
+- **DevTools (#22):** `harvest_dump`/`harvest_force_regenerate` konsol komutları, `craft_start` deseniyle
+  aynı yerde (`HarvestNode.cpp` altında) yaşar.
+- **Content Pipeline (#24):** `DT_HarvestNodes.YieldItemID`'nin `DT_Items`'ta var olduğu `content_validate`'e
+  eklenir.
+
+**Aşamalama:**
+- **v1 (tasarlandı, henüz KODLANMADI):** `Agac`/`Kaya` — tüm düğümler aynı davranışta, alet gereksinimi yok,
+  Equipment bileşeni yok, spawn-volume yok, save entegrasyonu yok.
+- **v1.5 (yalnızca gerçek playtest ihtiyacı doğarsa):** `RequiredToolTag` aktive edilir — YENİ bir
+  Equipment/hotbar bileşeni icat etmeden, mevcut `UInventoryComponent` + `UItemDatabase::FindItemsByTag` ile
+  "envanterde bu etiketli öğe var mı" taraması yeterli.
+- **v2 (opsiyonel, yalnızca gerçek açık-dünya/prosedürel yerleşim ihtiyacı doğarsa):** `AHarvestNodeSpawnVolume`
+  — bugün için seviye tasarımcısının birkaç `BP_HarvestNode` yerleştirmesi yeterli (proje hâlâ tek düz test
+  haritası kullanıyor).
+
+**Uygulama Sırası:** ÖNCELİKLİ — #21/#26/#28'den ÖNCE ele alınmalı (Faz 1 dikey-dilim borcu kapanışı, bkz.
+`Docs/YOL_HARITASI.md` ADR 2026-07-26 + takip notu).
+
+---
+
 ## ÖZET: EKSIK BÖLÜMLER UYGULAMA SIRASI
 
 | Sıra | Sistem | Zaman |
 |------|--------|-------|
+| 29 | **Hasat Düğümleri (Harvest Nodes)** | **ÖNCELİKLİ — 21/26/28'den ÖNCE** (Faz 1 dikey-dilim borcu) |
 | 21 | Multiplayer (Temel) | Release sonrası |
 | 22 | Dev Tools | Hafta 2 |
 | 23 | Hata İşleme & Logging | Hafta 3-4 |
@@ -1750,7 +1885,8 @@ struct FAchievementDefinition
 **Hafta 3-4:** Sistemler 6-10 (Dikey dilim tamamı)
 **Hafta 5-6:** Sistemler 11-15 (Sistem simülasyonları)
 **Hafta 7-8:** Sistemler 16-20 (NPC, Ses, UI, Kaydet/Yükle)
-**Hafta 9-10:** Sistemler 21-28 (Multiplayer, Tools, Deploy)
+**Hafta 9-10:** Sistemler 21-28 (Multiplayer, Tools, Deploy) — **Sistem #29 (Hasat Düğümleri) bu pencerede
+diğerlerinden ÖNCE ele alınmalı** (2026-07-26'da keşfedilen Faz 1 dikey-dilim borcu, bkz. Sistem #29 bölümü)
 
 **QA & Balanse:** Paralel, hafta 5+
 **Polishing:** Hafta 11-12

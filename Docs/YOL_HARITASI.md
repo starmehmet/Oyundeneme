@@ -53,7 +53,7 @@
 - [ ] QA turu: tüm entegrasyon testleri + 2 saatlik oynama seansı hatasız
 - [ ] Performans: 500 bina/makine sahnesinde < 16 ms frame
 - [ ] Bellek: < 8 GB, kayıt dosyası < 100 MB
-- [ ] Denge geçişi #2
+- [x] Denge geçişi #2 — 33 değişiklik/5 tablo (OdunIsleme veri hatası düzeltildi, 3 demir-tier alet, ağırlık/yığın/dayanıklılık/maliyet dengelendi) *(2026-08-03)*
 - [ ] **KİLOMETRE TAŞI: Alpha build** — arkadaş/kapalı test dağıtımı
 
 ## Hafta 13–16 · Beta → Steam

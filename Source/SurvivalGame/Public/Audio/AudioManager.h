@@ -42,6 +42,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Audio")
 	FOnCategoryVolumeChanged OnCategoryVolumeChanged;
 
+	const TMap<ESoundCategory, float>& GetCategoryVolumes() const { return CategoryVolumes; }
+
+	void RestoreVolumesForLoad(const TMap<ESoundCategory, float>& InVolumes);
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	TMap<ESoundCategory, float> CategoryVolumes;

@@ -56,6 +56,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weather")
 	bool ForceWeather(EWeatherCondition NewCondition);
 
+	const FWeatherState& GetTransitionStartState() const { return TransitionStartState; }
+	const FWeatherState& GetTargetState() const { return TargetState; }
+	float GetTransitionElapsed() const { return TransitionElapsed; }
+	float GetTimeSinceLastEvaluation() const { return TimeSinceLastEvaluation; }
+
+	void RestoreStateForLoad(const FWeatherState& InCurrent, const FWeatherState& InTransStart,
+		const FWeatherState& InTarget, float InTransProgress, float InTransElapsed, float InTimeSinceEval);
+
 	UPROPERTY(BlueprintAssignable, Category = "Weather")
 	FOnWeatherStateChanged OnWeatherStateChanged;
 

@@ -313,3 +313,20 @@ void AProductionMachine::CompleteProductionCycle(const FProductionRecipe& Recipe
 	OnProductionCompleted.Broadcast(ActiveRecipeID);
 	UE_LOG(LogSurvivalProduction, Log, TEXT("Uretim tamamlandi: '%s'"), *ActiveRecipeID.ToString());
 }
+
+void AProductionMachine::RestoreStateForLoad(FName InRecipeID, float InProgress, float InEnergy,
+	EProductionState InState, const TArray<FInventorySlot>& InInput, const TArray<FInventorySlot>& InOutput)
+{
+	ActiveRecipeID = InRecipeID;
+	Progress = InProgress;
+	CurrentEnergy = InEnergy;
+	State = InState;
+	if (InputBuffer)
+	{
+		InputBuffer->RestoreSlots(InInput);
+	}
+	if (OutputBuffer)
+	{
+		OutputBuffer->RestoreSlots(InOutput);
+	}
+}

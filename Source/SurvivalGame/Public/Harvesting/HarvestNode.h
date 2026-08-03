@@ -41,6 +41,8 @@ public:
 	double GetDepletionGameTime() const { return DepletionGameTime; }
 	float GetRespawnSeconds() const { return CachedRespawnSeconds; }
 
+	void RestoreStateForLoad(int32 InHarvests, bool bInDepleted, double InDepletionTime);
+
 protected:
 	/** DT_HarvestNodes satir anahtari. */
 	UPROPERTY(EditAnywhere, Category = "Harvest")

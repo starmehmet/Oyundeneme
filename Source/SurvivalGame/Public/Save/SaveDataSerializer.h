@@ -131,16 +131,12 @@ namespace SurvivalSave
 		return UGameplayStatics::LoadGameFromMemory(RawBytes);
 	}
 
-	/**
-	 * Sürüm-geçiş noktası (DoD: "güncelleme için sürüm geçişi"). Şu an TEK sürüm (1) olduğu
-	 * için bu bir GEÇİŞ-YOK doğrulamasıdır — gelecekte alan eklenip/adı değiştirilince buraya
-	 * `if (Data.SaveVersion < 2) { ... }` gibi adımlar eklenir. Seam BİLEREK hazır bırakıldı
-	 * (bkz. `FBuildingDefinition::BuildingClass` ile aynı "genişleme noktası" deseni).
-	 */
 	inline void MigrateSaveData(FGameSaveData& Data)
 	{
-		constexpr int32 CurrentSaveVersion = 1;
-		// Gelecekteki surumler icin: if (Data.SaveVersion < 2) { ... } gibi adimlar buraya.
+		constexpr int32 CurrentSaveVersion = 2;
+		// v1 -> v2: yeni alanlar (Buildings, Weather, Snow, Resources, HarvestNodes, NPCs,
+		// PendingTasks, AudioVolumes) UPROPERTY varsayilanlariyla zaten bos/sifir gelir —
+		// ek donusum gerekmiyor (ekleme-tabanli genisleme).
 		Data.SaveVersion = CurrentSaveVersion;
 	}
 }

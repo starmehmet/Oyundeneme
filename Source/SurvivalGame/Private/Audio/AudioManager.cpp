@@ -172,3 +172,8 @@ namespace
 					Manager->GetCategoryVolume(ESoundCategory::Voice));
 			}));
 }
+
+void UAudioManager::RestoreVolumesForLoad(const TMap<ESoundCategory, float>& InVolumes)
+{
+	CategoryVolumes = InVolumes;
+}

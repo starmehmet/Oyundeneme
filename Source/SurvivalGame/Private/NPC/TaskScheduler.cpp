@@ -193,3 +193,8 @@ namespace
 					Scheduler->GetPendingTaskCount(), Scheduler->GetActiveAssignmentCount());
 			}));
 }
+
+void UTaskScheduler::RestorePendingTasksForLoad(const TArray<FTaskDefinition>& InTasks)
+{
+	PendingTasks = InTasks;
+}

@@ -154,3 +154,24 @@ void AHarvestNode::Respawn()
 
 	UE_LOG(LogSurvival, Log, TEXT("AHarvestNode '%s': yeniden dogdu (sarj: %d)"), *GetName(), RemainingHarvests);
 }
+
+void AHarvestNode::RestoreStateForLoad(int32 InHarvests, bool bInDepleted, double InDepletionTime)
+{
+	RemainingHarvests = InHarvests;
+	bDepleted = bInDepleted;
+	DepletionGameTime = InDepletionTime;
+
+	SetActorHiddenInGame(bDepleted);
+	SetActorEnableCollision(!bDepleted);
+
+	if (bDepleted)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UHarvestNodeManager* Manager = World->GetSubsystem<UHarvestNodeManager>())
+			{
+				Manager->RegisterDepletedNode(this);
+			}
+		}
+	}
+}

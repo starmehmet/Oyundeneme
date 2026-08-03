@@ -48,6 +48,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Task")
 	int32 GetActiveAssignmentCount() const { return ActiveAssignments.Num(); }
 
+	const TArray<FTaskDefinition>& GetPendingTasks() const { return PendingTasks; }
+
+	void RestorePendingTasksForLoad(const TArray<FTaskDefinition>& InTasks);
+
 private:
 	UFUNCTION()
 	void HandleTaskCompleted(UNPCBrain* Brain, FName TaskID);

@@ -338,3 +338,11 @@ namespace
 					*Args[0], Count, bRequested ? TEXT("kuyruga eklendi") : TEXT("basarisiz"));
 			}));
 }
+
+void ULogisticsNetwork::CompleteAllTransportsForSave()
+{
+	while (ActiveTransports.Num() > 0)
+	{
+		CompleteTransport(0);
+	}
+}

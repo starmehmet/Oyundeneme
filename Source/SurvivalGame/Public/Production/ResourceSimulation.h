@@ -101,6 +101,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	EScarcityReason GetScarcityReason() const { return CurrentScarcityReason; }
 
+	const TMap<FName, FFuelReserve>& GetFuelReserves() const { return FuelReserves; }
+
+	void RestoreStateForLoad(const TMap<FName, FFuelReserve>& InFuelReserves, float InThermalTemp);
+
 	UPROPERTY(BlueprintAssignable, Category = "Resource")
 	FOnScarcityStateChanged OnScarcityStateChanged;
 

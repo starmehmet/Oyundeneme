@@ -18,11 +18,9 @@ class APlayerCharacter;
  * EvaluationInterval`/`USnowAccumulation::AvalancheCheckInterval` ile aynı periyodik-kontrol
  * deseni) VE gerçek (duvar-saati) oynama süresini biriktirmek için.
  *
- * DÜRÜST kapsam: yalnızca Zaman+Oyuncu durumu kaydedilir, bkz. `SaveDataTypes.h` ADR notu.
- * Kaydetme/yükleme SENKRON'dur (`Async` DEĞİL) — DoD'nin önerdiği "async serialization"
- * büyük kayıt dosyalarında (500 bina/makine) frame-drop riskini azaltmak için, ama bu
- * pasodaki yük (Zaman+Oyuncu) zaten küçük; gerçek ihtiyaç (daha fazla sistem eklenip yük
- * büyüyünce) ortaya çıkınca `UGameplayStatics::AsyncSaveGameToSlot` deseni eklenebilir.
+ * Kapsam (SaveVersion=2): Zaman+Oyuncu (v1) + Insaat/Uretim/Lojistik/Hava/Kar/Kaynak/
+ * Hasat/NPC/Gorev/Ses (v2). Kaydetme/yukleme SENKRON'dur — gercek ihtiyac (500+ bina)
+ * ortaya cikinca `UGameplayStatics::AsyncSaveGameToSlot` deseni eklenebilir.
  */
 UCLASS()
 class SURVIVALGAME_API USaveGameManager : public UGameInstanceSubsystem, public FTickableGameObject

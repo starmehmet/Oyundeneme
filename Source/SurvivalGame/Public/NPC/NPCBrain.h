@@ -66,6 +66,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "NPC")
 	int32 GetSkillLevel() const { return SkillLevel; }
 
+	const FNPCTaskData& GetCurrentTask() const { return CurrentTask; }
+	float GetWorkElapsedTime() const { return WorkElapsedTime; }
+	float GetWalkingElapsedTime() const { return WalkingElapsedTime; }
+
+	void RestoreStateForLoad(ENPCState InState, float InFatigue, float InMorale,
+		bool bInHasTask, const FNPCTaskData& InTask, float InWorkElapsed, float InWalkElapsed);
+
 	UPROPERTY(BlueprintAssignable, Category = "NPC")
 	FOnNPCStateChanged OnStateChanged;
 

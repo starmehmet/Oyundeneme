@@ -221,3 +221,25 @@ void UNPCBrain::OnStateExited(ENPCState OldState)
 		Controller->StopMovement();
 	}
 }
+
+void UNPCBrain::RestoreStateForLoad(ENPCState InState, float InFatigue, float InMorale,
+	bool bInHasTask, const FNPCTaskData& InTask, float InWorkElapsed, float InWalkElapsed)
+{
+	CurrentState = InState;
+	Fatigue = InFatigue;
+	Morale = InMorale;
+	bHasTask = bInHasTask;
+	CurrentTask = InTask;
+	WorkElapsedTime = InWorkElapsed;
+	WalkingElapsedTime = InWalkElapsed;
+
+	// AssignTask ile ayni kalip: durum gecisi olmadan Walking'e geri yuklenirse
+	// OnStateEntered tetiklenmez — hareketi burada ELLE baslatmaliyiz.
+	if (CurrentState == ENPCState::Walking && bHasTask)
+	{
+		if (AAIController* Controller = GetAIController())
+		{
+			Controller->MoveToLocation(CurrentTask.TargetLocation);
+		}
+	}
+}

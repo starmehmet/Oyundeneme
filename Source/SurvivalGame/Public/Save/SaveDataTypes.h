@@ -3,20 +3,172 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "Inventory/InventoryComponent.h"
+#include "Weather/WeatherTypes.h"
+#include "Production/ProductionState.h"
+#include "Production/ResourceTypes.h"
+#include "NPC/NPCState.h"
+#include "NPC/NPCTaskData.h"
+#include "NPC/TaskDefinition.h"
+#include "Audio/SoundCategory.h"
 #include "SaveDataTypes.generated.h"
 
+USTRUCT()
+struct FBuildingSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName BuildingID;
+
+	UPROPERTY()
+	FIntPoint GridCoord = FIntPoint::ZeroValue;
+
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
+	FName ActiveRecipeID;
+
+	UPROPERTY()
+	float MachineProgress = 0.0f;
+
+	UPROPERTY()
+	float MachineEnergy = 0.0f;
+
+	UPROPERTY()
+	uint8 MachineState = 0;
+
+	UPROPERTY()
+	TArray<FInventorySlot> InputSlots;
+
+	UPROPERTY()
+	TArray<FInventorySlot> OutputSlots;
+};
+
+USTRUCT()
+struct FWeatherSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FWeatherState CurrentState;
+
+	UPROPERTY()
+	FWeatherState TransitionStartState;
+
+	UPROPERTY()
+	FWeatherState TargetState;
+
+	UPROPERTY()
+	float TransitionProgress = 1.0f;
+
+	UPROPERTY()
+	float TransitionElapsed = 0.0f;
+
+	UPROPERTY()
+	float TimeSinceLastEvaluation = 0.0f;
+};
+
+USTRUCT()
+struct FResourceSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TMap<FName, FFuelReserve> FuelReserves;
+
+	UPROPERTY()
+	float ThermalTemperature = 0.0f;
+};
+
+USTRUCT()
+struct FHarvestNodeSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName ActorName;
+
+	UPROPERTY()
+	int32 RemainingHarvests = 0;
+
+	UPROPERTY()
+	bool bDepleted = false;
+
+	UPROPERTY()
+	double DepletionGameTime = 0.0;
+};
+
+USTRUCT()
+struct FNPCSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName ActorName;
+
+	UPROPERTY()
+	FVector Position = FVector::ZeroVector;
+
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
+	float Health = 100.0f;
+
+	UPROPERTY()
+	uint8 BrainState = 0;
+
+	UPROPERTY()
+	float Fatigue = 0.0f;
+
+	UPROPERTY()
+	float Morale = 1.0f;
+
+	UPROPERTY()
+	bool bHasTask = false;
+
+	UPROPERTY()
+	FNPCTaskData CurrentTask;
+
+	UPROPERTY()
+	float WorkElapsedTime = 0.0f;
+
+	UPROPERTY()
+	float WalkingElapsedTime = 0.0f;
+};
+
+USTRUCT()
+struct FTaskSaveData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FName TaskID;
+
+	UPROPERTY()
+	FText TaskName;
+
+	UPROPERTY()
+	FVector TargetLocation = FVector::ZeroVector;
+
+	UPROPERTY()
+	float Priority = 0.0f;
+
+	UPROPERTY()
+	int32 RequiredSkillLevel = 0;
+
+	UPROPERTY()
+	float WorkDuration = 5.0f;
+
+	UPROPERTY()
+	double AvailableAfterGameTime = 0.0;
+};
+
 /**
- * Sistem #17 — MIMARI.md'nin `FGameSaveData`'sı; `FSaveDataVersion` ayrı bir struct YERİNE
- * düz bir `int32` (tek alanlık bir struct'ın kendisi gereksiz bir katmandı, bkz. ADR).
- *
- * DÜRÜST kapsam notu: bu ilk pasoda YALNIZCA Zaman (Sistem #1) + Oyuncu (konum/can/vücut
- * sıcaklığı/envanter) kaydediliyor — İnşaat/Üretim/Lojistik/Kaynak/Hava/NPC/Görev durumu
- * BU PASODA kaydedilmiyor (her biri kendi kaydet/yükle arayüzünü henüz açığa çıkarmadı;
- * `UTimeKeeper::GetTotalGameSeconds/SetTotalGameSeconds` gibi TEK sistem bu iş için ÖNCEDEN
- * hazırlanmıştı, bkz. o sınıfın Sistem #1 yorumu). MIMARI'nin "tam oyun durumu" DoD'si
- * gerçek anlamda HER sistemin kendi kaydet/yükle uç noktasını eklemesini gerektirir — bu,
- * mekanizmanın (sıkıştırma/sürüm/bozulma/yuva yönetimi) doğru kurulduğu bu pasodan SONRA,
- * gerçek ihtiyaç ortaya çıktıkça (her sistem kendi ADR'siyle) genişletilebilir bir seam.
+ * Sistem #17 — SaveVersion=2: Zaman+Oyuncu (v1) + Insaat/Uretim/Hava/Kar/Kaynak/
+ * Hasat/NPC/Gorev/Ses (v2). Eski kayitlar (v1) yeni alanlar icin bos/varsayilan
+ * degerlerle acilir (ekleme-tabanli, kirilma yok).
  */
 USTRUCT()
 struct FGameSaveData
@@ -24,18 +176,15 @@ struct FGameSaveData
 	GENERATED_BODY()
 
 	UPROPERTY()
-	int32 SaveVersion = 1;
+	int32 SaveVersion = 2;
 
-	/** Gerçek (duvar-saati) oynama süresi — `UTimeKeeper`'ın ölçekli/duraklatılabilir
-	 * oyun-içi zamanından BAĞIMSIZ, `USaveGameManager`'ın kendi Tick'inde biriktirilir. */
 	UPROPERTY()
 	float TotalPlayTimeSeconds = 0.0f;
 
-	/** `UTimeKeeper::GetTotalGameSeconds()`/`SetTotalGameSeconds()` — Sistem #1'in bu iş için
-	 * ÖNCEDEN hazırlanmış arayüzü. */
 	UPROPERTY()
 	double TotalGameSeconds = 0.0;
 
+	// ---- Oyuncu (v1) ----
 	UPROPERTY()
 	FVector PlayerPosition = FVector::ZeroVector;
 
@@ -45,18 +194,42 @@ struct FGameSaveData
 	UPROPERTY()
 	float PlayerBodyTemperature = 37.0f;
 
-	/** `FInventorySlot` (Sistem #4) DOĞRUDAN yeniden kullanılır — paralel bir kayıt-özel
-	 * envanter-satırı türü İCAT EDİLMEDİ. */
 	UPROPERTY()
 	TArray<FInventorySlot> PlayerInventory;
+
+	// ---- Insaat + Uretim (v2) ----
+	UPROPERTY()
+	TArray<FBuildingSaveData> Buildings;
+
+	// ---- Hava Durumu (v2) ----
+	UPROPERTY()
+	FWeatherSaveData Weather;
+
+	// ---- Kar (v2) ----
+	UPROPERTY()
+	float SnowDepth = 0.0f;
+
+	// ---- Kaynak Simulasyonu (v2) ----
+	UPROPERTY()
+	FResourceSaveData Resources;
+
+	// ---- Hasat Dugumleri (v2) ----
+	UPROPERTY()
+	TArray<FHarvestNodeSaveData> HarvestNodes;
+
+	// ---- NPC (v2) ----
+	UPROPERTY()
+	TArray<FNPCSaveData> NPCs;
+
+	// ---- Gorev Kuyrugu (v2) ----
+	UPROPERTY()
+	TArray<FTaskSaveData> PendingTasks;
+
+	// ---- Ses Ayarlari (v2) ----
+	UPROPERTY()
+	TMap<ESoundCategory, float> AudioVolumes;
 };
 
-/**
- * `UGameplayStatics::SaveGameToMemory`/`LoadGameFromMemory`'nin çalıştığı gerçek `USaveGame`
- * sarmalayıcısı — motorun kendi property-serileştirmesi bu sınıfın TÜM `UPROPERTY` alanlarını
- * otomatik olarak (elle `FMemoryWriter` yazmadan) ele alır; `USaveGameManager` yalnızca ham
- * baytları sıkıştırıp diske yazar (bkz. `SaveDataSerializer.h`).
- */
 UCLASS()
 class SURVIVALGAME_API USurvivalSaveGame : public USaveGame
 {

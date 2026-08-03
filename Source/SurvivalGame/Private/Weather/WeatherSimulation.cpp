@@ -207,3 +207,16 @@ namespace
 					S.VisibilityDistance, S.Precipitation, Sim->GetTransitionProgress());
 			}));
 }
+
+void UWeatherSimulation::RestoreStateForLoad(const FWeatherState& InCurrent, const FWeatherState& InTransStart,
+	const FWeatherState& InTarget, float InTransProgress, float InTransElapsed, float InTimeSinceEval)
+{
+	CurrentState = InCurrent;
+	TransitionStartState = InTransStart;
+	TargetState = InTarget;
+	TransitionProgress = InTransProgress;
+	TransitionElapsed = InTransElapsed;
+	TimeSinceLastEvaluation = InTimeSinceEval;
+	bHasEvaluatedOnce = true;
+	bHasInitializedState = true;
+}

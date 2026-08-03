@@ -116,6 +116,8 @@ public:
 
 	bool IsVisualizationEnabled() const { return bVisualizationEnabled; }
 
+	void CompleteAllTransportsForSave();
+
 private:
 	void RebuildAcceptorCache();
 	void CompleteTransport(int32 Index);

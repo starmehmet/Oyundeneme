@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Construction/BuildingBase.h"
 #include "Production/ProductionState.h"
+#include "Inventory/InventoryComponent.h"
 #include "ProductionMachine.generated.h"
 
 class UInventoryComponent;
@@ -62,6 +63,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Production")
 	virtual float GetProgress() const;
 
+	float GetRawProgress() const { return Progress; }
+
 	UFUNCTION(BlueprintPure, Category = "Production")
 	float GetCurrentEnergy() const { return CurrentEnergy; }
 
@@ -105,6 +108,9 @@ public:
 	 * devasa, yanlış bir tek-seferlik üretim sıçramasına yol açardı.
 	 */
 	void ResetProductionClock(double CurrentGameTime) { LastProductionUpdateTime = CurrentGameTime; }
+
+	void RestoreStateForLoad(FName InRecipeID, float InProgress, float InEnergy, EProductionState InState,
+		const TArray<FInventorySlot>& InInput, const TArray<FInventorySlot>& InOutput);
 
 	UPROPERTY(BlueprintAssignable, Category = "Production")
 	FOnProductionCompleted OnProductionCompleted;

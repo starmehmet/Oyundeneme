@@ -321,3 +321,9 @@ namespace
 					Sim->IsInScarcity() ? TEXT("EVET") : TEXT("hayir"));
 			}));
 }
+
+void UResourceSimulation::RestoreStateForLoad(const TMap<FName, FFuelReserve>& InFuelReserves, float InThermalTemp)
+{
+	FuelReserves = InFuelReserves;
+	ThermalBudget.CurrentTemperature = InThermalTemp;
+}

@@ -1,9 +1,12 @@
 ﻿#include "Inventory/InventoryComponent.h"
 #include "Inventory/InventoryMath.h"
 #include "Items/ItemDatabase.h"
+#include "Player/PlayerCharacter.h"
 #include "SurvivalGame.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "HAL/IConsoleManager.h"
 
 UInventoryComponent::UInventoryComponent()
 {
@@ -277,4 +280,37 @@ void UInventoryComponent::BroadcastSlot(int32 SlotIndex)
 	{
 		OnInventoryChanged.Broadcast(SlotIndex, Slots[SlotIndex]);
 	}
+}
+
+// ---- Konsol komutu: PIE/dev dogrulamasi icin (craft_start/production_set_recipe ile ayni desen) ----
+
+namespace
+{
+	FAutoConsoleCommandWithWorldAndArgs GCmdGiveItem(
+		TEXT("give_item"),
+		TEXT("Oyuncunun envanterine oge ekler (dev-cheat): give_item <ItemID> [Adet]"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda(
+			[](const TArray<FString>& Args, UWorld* World)
+			{
+				if (!World || Args.Num() < 1)
+				{
+					UE_LOG(LogSurvival, Warning, TEXT("Kullanim: give_item <ItemID> [Adet]"));
+					return;
+				}
+
+				const APlayerController* PC = World->GetFirstPlayerController();
+				APlayerCharacter* Player = PC ? Cast<APlayerCharacter>(PC->GetPawn()) : nullptr;
+				UInventoryComponent* Inventory = Player ? Player->GetInventoryComponent() : nullptr;
+				if (!Inventory)
+				{
+					UE_LOG(LogSurvival, Warning, TEXT("give_item: oyuncu/envanter bulunamadi"));
+					return;
+				}
+
+				const FName ItemID(*Args[0]);
+				const int32 RequestedCount = Args.Num() > 1 ? FMath::Max(1, FCString::Atoi(*Args[1])) : 1;
+				const int32 Added = Inventory->AddItem(ItemID, RequestedCount);
+				UE_LOG(LogSurvival, Log, TEXT("give_item: '%s' x%d istendi, %d eklendi"),
+					*Args[0], RequestedCount, Added);
+			}));
 }

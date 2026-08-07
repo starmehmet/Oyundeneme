@@ -54,7 +54,7 @@
 - [x] Performans: 500 bina/makine sahnesinde < 16 ms frame — standalone `-game` + CSV profiler: **5.36 ms** (Game 2.51 / GPU 4.82), ~186 FPS *(2026-08-07)*
 - [x] Bellek: < 8 GB, kayıt dosyası < 100 MB — standalone `-game`, 750 aktör görünürken **PhysicalUsed 2.51 GB** (peak 2.52), VirtualUsed 3.17 GB, GPU yerel 632 MB / 7123 MB bütçe; **kayıt 21.7 KB** (750 bina dahil) *(2026-08-07)*
 - [x] Denge geçişi #2 — 33 değişiklik/5 tablo (OdunIsleme veri hatası düzeltildi, 3 demir-tier alet, ağırlık/yığın/dayanıklılık/maliyet dengelendi) *(2026-08-03)*
-- [ ] **KİLOMETRE TAŞI: Alpha build** — arkadaş/kapalı test dağıtımı
+- [ ] **KİLOMETRE TAŞI: Alpha build** — arkadaş/kapalı test dağıtımı. **Build ÜRETİLDİ ve çalıştığı doğrulandı** *(2026-08-07)*: UAT `BuildCookRun` Win64/Development, BUILD SUCCESSFUL 3dk10sn, 0 hata; `Packaged/Windows/` 934 MB; gerçek exe'de spawn+BugItGo+0 fatal, GPU 4.99ms / Game 2.86ms / bellek 1.09 GB. **Dağıtım YAPILMADI** — önce (a) 2 saatlik oynama seansı, (b) tek cook edilen haritanın `Maps/Tests/TestPlayer` olması konusunda karar (test sahnesi, tasarlanmış başlangıç deneyimi değil)
 
 ## Hafta 13–16 · Beta → Steam
 - [ ] Sistem 28: Steamworks (başarımlar, cloud save)

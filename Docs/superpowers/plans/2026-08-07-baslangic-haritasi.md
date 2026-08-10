@@ -834,7 +834,7 @@ powershell -File "C:/Users/atoly/.claude/skills/unreal-engine-dev/scripts/ue-too
 powershell -File "C:/Users/atoly/.claude/skills/unreal-engine-dev/scripts/ue-tool.ps1" -Toolset "editor_toolset.toolsets.scene.SceneTools" -Tool "find_actors" -ArgsJson '{"actor_type":"/Script/SurvivalGame.HarvestNode"}'
 ```
 
-Beklenen: 21 hasat düğümü (4+3+2+1+3+2+2+8 = 25 — tablodaki adetleri say ve doğrula).
+Beklenen: **25** hasat düğümü (tempo tablosu: 4 Agac + 3 Kaya + 2 MeyveAgaci + 1 BalikNoktasi + 3 LifBitkisi + 2 DemirDamari + 2 KomurDamari + 8 uzak halka = 25). Task 3 Step 5 kopyalanan haritadaki eski düğümleri sildiği için sayı tam olmalı; fazlaysa temizlik eksik kalmış demektir.
 
 - [ ] **Step 7: PIE'de yönlendirilmiş açılışı canlı doğrula**
 

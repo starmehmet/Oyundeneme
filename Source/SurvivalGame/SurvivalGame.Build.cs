@@ -28,5 +28,13 @@ public class SurvivalGame : ModuleRules
 			"JsonUtilities",
 			"AssetRegistry"
 		});
+
+		// Landscape yalnizca editor-only arazi ureticisi (LandscapeBuilder.cpp) tarafindan
+		// kullanilir — ALandscapeProxy::Import() WITH_EDITOR icindedir. Paketlenmis oyun
+		// hedefi bu bagimliligi tasimaz; arazi zaten .umap'e gomulu veri olarak gider.
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.Add("Landscape");
+		}
 	}
 }

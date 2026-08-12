@@ -299,6 +299,18 @@ namespace
 				}
 
 				Node->SetNodeID(NodeID);
+
+				// Inceleme bulgusu (kritik, kayit-persistence): GenerateLandscape'in aksine
+				// (orada ALandscapeProxy::Import() ic kaynakta Modify() cagirip paketi kendisi
+				// dirty isaretliyor) SpawnActor TEK BASINA level paketini dirty ISARETLEMEZ —
+				// isaretlenmezse normal save_assets/Ctrl+S bu aktoru sessizce ATLAR, dugum
+				// yalnizca bellekte kalir. Motor kaynagindaki emsalle AYNI desen
+				// (EditorActorSubsystem.cpp::ConvertActors: "NewActor->MarkPackageDirty();" —
+				// aktor kendi ciktigi paketi isaretler): non-OFPA bir level'da tum aktorler
+				// AYNI level paketini paylastigi icin, ilk cagridan sonraki cagrilar ucuz bir
+				// bayrak kontrolunden ibarettir.
+				Node->MarkPackageDirty();
+
 				++PlacedCount;
 				++CountsByType.FindOrAdd(NodeID);
 			}

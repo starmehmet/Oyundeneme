@@ -31,6 +31,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Harvest")
 	FName GetNodeID() const { return NodeID; }
 
+	/** survival_populate_world (editor-only dunya dagilim komutu) spawn sonrasi tur atamak icin. */
+	void SetNodeID(FName InNodeID) { NodeID = InNodeID; }
+
 	/** PIE/test dogrulamasi icin (MCP get_properties ile okunur, InteractionCount deseniyle ayni). */
 	UFUNCTION(BlueprintPure, Category = "Harvest")
 	bool IsDepleted() const { return bDepleted; }

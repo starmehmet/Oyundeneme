@@ -19,6 +19,7 @@
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
 #include "Harvesting/HarvestNode.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -191,6 +192,37 @@ namespace
 			return;
 		}
 
+		// Inceleme bulgusu (majör): komut idempotent DEGIL — ikinci calistirma ayni
+		// hucrelere ikinci bir dugum seti dogurur (ustuste binen dugumler, elle temizlemesi
+		// zor). Bloke ETMIYORUZ (kasitli tekrar-calistirma / farkli Yogunluk denemesi meshru
+		// olabilir), yalnizca UYARIYORUZ. Vadi ICINDEKI dugumler Task 5'in elle yerlestirdigi
+		// baslangic seti oldugu icin sayima DAHIL EDILMEZ — yalnizca vadi DISINDAKI (>15000 UU)
+		// mevcut AHarvestNode'lar onceki bir populate kosusundan kalma olabilir.
+		{
+			int32 ExistingWorldNodeCount = 0;
+			for (TActorIterator<AHarvestNode> It(World); It; ++It)
+			{
+				const AHarvestNode* Existing = *It;
+				if (!Existing)
+				{
+					continue;
+				}
+				const FVector ExistingLocation = Existing->GetActorLocation();
+				const double DistFromOrigin = FMath::Sqrt(
+					ExistingLocation.X * ExistingLocation.X + ExistingLocation.Y * ExistingLocation.Y);
+				if (DistFromOrigin > StartValleySkipRadiusUU)
+				{
+					++ExistingWorldNodeCount;
+				}
+			}
+			if (ExistingWorldNodeCount > 0)
+			{
+				UE_LOG(LogSurvival, Warning,
+					TEXT("survival_populate_world: %d mevcut dunya dugumu bulundu (vadi disinda, orijinden >%.0f UU) — tekrar calistirma cogaltir, once temizleyin"),
+					ExistingWorldNodeCount, StartValleySkipRadiusUU);
+			}
+		}
+
 		const int32 Seed = Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 1337;
 		int32 Density = Args.Num() > 1 ? FCString::Atoi(*Args[1]) : 25000;
 		if (Density < MinDensityUU)
@@ -208,7 +240,8 @@ namespace
 
 		int32 PlacedCount = 0;
 		int32 ValleySkippedCount = 0;
-		int32 NoHitSkippedCount = 0;
+		int32 NoTraceHitCount = 0;
+		int32 SpawnFailedCount = 0;
 		TMap<FName, int32> CountsByType;
 
 		for (int32 CellY = -HalfCellCount; CellY <= HalfCellCount; ++CellY)
@@ -218,21 +251,12 @@ namespace
 				const double CellCenterX = static_cast<double>(CellX) * Density;
 				const double CellCenterY = static_cast<double>(CellY) * Density;
 
-				if (FMath::Sqrt(CellCenterX * CellCenterX + CellCenterY * CellCenterY) <= StartValleySkipRadiusUU)
-				{
-					++ValleySkippedCount;
-					continue;
-				}
-
 				// Ayni (HucreX, HucreY, Tohum) her zaman ayni uc karari verir: tip, X-ofseti ve
 				// Y-ofseti farkli tuzlanmis (Tohum+1 / Tohum+2) hash'lerden gelir ki uc karar
 				// birbirine baglanmasin (ayni hash'i iki eksen icin tekrar kullanmak X/Y
 				// ofsetlerini kosegen bir desene kilitlerdi).
-				const uint32 TypeHash = SurvivalHeightmap::HashCoord(CellX, CellY, Seed);
 				const uint32 OffsetHashX = SurvivalHeightmap::HashCoord(CellX, CellY, Seed + 1);
 				const uint32 OffsetHashY = SurvivalHeightmap::HashCoord(CellX, CellY, Seed + 2);
-
-				const FName NodeID = PickHarvestNodeType(SurvivalHeightmap::HashToUnit(TypeHash));
 
 				// Hucre icinde [-Yogunluk/2, +Yogunluk/2) araliginda deterministik ofset — duz
 				// izgara gorunumunu kirar, komsu hucrenin alanina tasmaz.
@@ -241,20 +265,36 @@ namespace
 				const double SpawnX = CellCenterX + JitterX;
 				const double SpawnY = CellCenterY + JitterY;
 
+				// Inceleme bulgusu (kritik, hash bit-birebir yeniden hesaplanarak dogrulandi):
+				// vadi-atlama testi HUCRE MERKEZI degil GERCEK
+				// spawn noktasi (jitter UYGULANDIKTAN SONRA) uzerinde yapilmali — merkezi vadi
+				// disinda olan bir hucrenin jitter'li noktasi (+/-Yogunluk/2 kayabilir) vadinin
+				// icine dusebilirdi. Yaricap 15000 UU SABIT (Task 5'in uzak halkasiyla kesisme
+				// ihtimali kullanici tarafindan kabul edildi — onemli olan vadiye HICBIR
+				// tohumda dugum girmemesi).
+				if (FMath::Sqrt(SpawnX * SpawnX + SpawnY * SpawnY) <= StartValleySkipRadiusUU)
+				{
+					++ValleySkippedCount;
+					continue;
+				}
+
+				const uint32 TypeHash = SurvivalHeightmap::HashCoord(CellX, CellY, Seed);
+				const FName NodeID = PickHarvestNodeType(SurvivalHeightmap::HashToUnit(TypeHash));
+
 				FHitResult Hit;
 				const FVector TraceStart(SpawnX, SpawnY, TraceStartZ);
 				const FVector TraceEnd(SpawnX, SpawnY, TraceEndZ);
 				const bool bHit = World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, TraceParams);
 				if (!bHit)
 				{
-					++NoHitSkippedCount;
+					++NoTraceHitCount;
 					continue;
 				}
 
 				AHarvestNode* Node = World->SpawnActor<AHarvestNode>(Hit.ImpactPoint, FRotator::ZeroRotator);
 				if (!Node)
 				{
-					++NoHitSkippedCount;
+					++SpawnFailedCount;
 					continue;
 				}
 
@@ -266,8 +306,8 @@ namespace
 
 		const double Elapsed = FPlatformTime::Seconds() - StartTime;
 		UE_LOG(LogSurvival, Log,
-			TEXT("survival_populate_world: tohum=%d yogunluk=%d UU dugum=%d vadi-atlandi=%d trace-yok=%d sure=%.2f sn"),
-			Seed, Density, PlacedCount, ValleySkippedCount, NoHitSkippedCount, Elapsed);
+			TEXT("survival_populate_world: tohum=%d yogunluk=%d UU dugum=%d vadi-atlandi=%d trace-yok=%d spawn-basarisiz=%d sure=%.2f sn"),
+			Seed, Density, PlacedCount, ValleySkippedCount, NoTraceHitCount, SpawnFailedCount, Elapsed);
 		for (const TPair<FName, int32>& Pair : CountsByType)
 		{
 			UE_LOG(LogSurvival, Log, TEXT("survival_populate_world:   %s x%d"), *Pair.Key.ToString(), Pair.Value);

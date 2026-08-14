@@ -31,6 +31,11 @@ namespace
 	constexpr int32 QuadsPerComponent = SectionsPerComponent * QuadsPerSection;  // 126
 	constexpr int32 LandscapeVerts = ComponentCount * QuadsPerComponent + 1;     // 2017
 
+	// Landscape aktorunun RelativeScale3D'si (100 UU/quad). TEK dogruluk kaynagi — hem
+	// GenerateLandscape'in Scale'i hem WorldHalfExtentUU/trace mantigi buradan turer ki iki
+	// ayri yerden degistirilip sessizce sapmasin (HeightmapMath.h'nin HeightSpan yorumuyla ayni gerekce).
+	constexpr double LandscapeScaleUU = 100.0;
+
 	void GenerateLandscape(const TArray<FString>& Args, UWorld* World)
 	{
 		if (!World)
@@ -64,7 +69,7 @@ namespace
 
 		// Landscape orijine gore ORTALANIR: baslangic vadisi (duzlestirme merkezi) orijine
 		// dusmeli ki icerik koordinatlari okunur kalsin.
-		const FVector Scale(100.0, 100.0, 100.0);
+		const FVector Scale(LandscapeScaleUU, LandscapeScaleUU, LandscapeScaleUU);
 		const FVector Offset(
 			-ComponentCount * QuadsPerComponent * Scale.X * 0.5,
 			-ComponentCount * QuadsPerComponent * Scale.Y * 0.5,
@@ -125,9 +130,8 @@ namespace
 	// GenerateLandscape'teki Offset hesabiyla AYNI formul (bkz. yukarida "Scale(100,100,100)" ve
 	// "-ComponentCount * QuadsPerComponent * Scale.X * 0.5"): landscape orijin-merkezli
 	// yerlestirildigi icin dunya-uzayi yari-genisligi buradan yeniden turetilir. Olcek (100
-	// UU/quad) burada sabit varsayilir — Landscape aktorunun RelativeScale3D'si iki ayri yerden
-	// degistirilmez (HeightmapMath.h'nin HeightSpan yorumuyla ayni gerekce).
-	constexpr double LandscapeScaleUU = 100.0;
+	// UU/quad, LandscapeScaleUU) sabit varsayilir — Landscape orijin-merkezli yerlestigi icin
+	// dunya-uzayi yari-genisligi ustteki TEK LandscapeScaleUU sabitinden yeniden turetilir.
 	constexpr double WorldHalfExtentUU =
 		static_cast<double>(ComponentCount) * static_cast<double>(QuadsPerComponent) * LandscapeScaleUU * 0.5;
 
@@ -135,10 +139,9 @@ namespace
 	// hucreler ATLANIR (uzerine yazilmaz).
 	constexpr double StartValleySkipRadiusUU = 15000.0;
 
-	// Asagi dogru dunya trace sinirlari: gercek arazi Z araligi +/-58 m civarinda kaliyor
-	// (HeightmapMath.h: HeightSpan=15000 uint16-birimi, Landscape Z olcegi 100/128 UU-per-birim
-	// ile carpilinca ~ +/-5860 UU eder) — +/-50000 UU bu araligi rahat kapsayan sabit bir
-	// ust/alt sinir.
+	// Asagi dogru dunya trace sinirlari: gercek arazi Z araligi HeightSpan=60000 ile tepe
+	// ~+23437 UU / vadi ~-7031 UU arasinda — +/-50000 UU bu araligi rahat kapsayan sabit bir
+	// ust/alt sinir (HeightSpan degisirse bu sinirin hala kapsadigi kontrol edilmeli).
 	constexpr double TraceStartZ = 50000.0;
 	constexpr double TraceEndZ = -50000.0;
 

@@ -19,12 +19,15 @@ namespace SurvivalHeightmap
 
 	/**
 	 * Kullanilan uint16 bandinin genisligi. Tam uint16 araligi (65535) Z olcegi 100'de
-	 * +/-25 600 UU'ya karsilik gelir ki bu oynanamayacak kadar dik bir arazi verir.
-	 * 15000 -> yaklasik +/-58 m tepe-vadi farki: yurunebilir, insa edilebilir, ama okunur
-	 * bir siluet. Yukseklik TEK BURADAN kontrol edilir — Landscape aktorunun Z olcegi
-	 * varsayilan 100'de birakilir ki iki yerden ayarlanan gizli bir bagimlilik olusmasin.
+	 * +/-25 600 UU'ya karsilik gelir. 60000 -> tepe +23 437 UU, vadi (FlattenHeight=0.35)
+	 * -7031 UU: ~300 m dikey aralik, GERCEK ucurumlar (vadi duvarlari ~45 derece, gurultu
+	 * tepeleri sarp). Tasma yok: tepe fBm=1.0 -> 32768+30000=62768 < 65535; taban fBm=0 ->
+	 * 32768-30000=2768 > 0. Yukseklik TEK BURADAN kontrol edilir — Landscape aktorunun Z
+	 * olcegi varsayilan 100'de birakilir ki iki yerden ayarlanan gizli bir bagimlilik olusmasin.
+	 * NOT: Arazi bu degerle yeniden uretilirse mevcut icerigin Z'si bozulur —
+	 * survival_reground_nodes komutu tum dugumleri + PlayerStart'i yeni yuzeye oturtur.
 	 */
-	inline constexpr float HeightSpan = 15000.0f;
+	inline constexpr float HeightSpan = 60000.0f;
 
 	struct FHeightmapParams
 	{

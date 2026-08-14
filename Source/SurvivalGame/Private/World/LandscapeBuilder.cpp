@@ -19,6 +19,7 @@
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
 #include "Harvesting/HarvestNode.h"
+#include "GameFramework/PlayerStart.h"
 #include "EngineUtils.h"
 
 namespace
@@ -332,6 +333,82 @@ namespace
 		TEXT("survival_populate_world"),
 		TEXT("Genis dunyaya seyrek hasat dugumu dagitir (baslangic vadisi haric): survival_populate_world [Tohum=1337] [Yogunluk=25000]"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda(&PopulateWorld));
+
+	// Arazi yeniden uretildikten sonra (ör. HeightSpan degisince) mevcut icerigin Z'si
+	// bozulur: dugumler havada asili ya da zemine gomulu kalir. Bu komut her AHarvestNode'u
+	// ve PlayerStart'i KENDI (X,Y)'sinde asagi trace edip yeni yuzeye oturtur — tasarlanmis
+	// XY konumlari (tempo tablosu, prosedurel dagilim) korunur, yalnizca yukseklik duzeltilir.
+	// populate_world ile AYNI trace/dirty desenini kullanir.
+	void RegroundActors(const TArray<FString>& Args, UWorld* World)
+	{
+		if (!World)
+		{
+			UE_LOG(LogSurvival, Warning, TEXT("survival_reground_nodes: gecerli bir World yok"));
+			return;
+		}
+
+		int32 NodesReGrounded = 0;
+		int32 NodesMissed = 0;
+		for (TActorIterator<AHarvestNode> It(World); It; ++It)
+		{
+			AHarvestNode* Node = *It;
+			if (!Node)
+			{
+				continue;
+			}
+			const FVector Loc = Node->GetActorLocation();
+			FHitResult Hit;
+			// Dugumun kendi collision'ina carpmamak icin trace'ten haric tut.
+			FCollisionQueryParams NodeParams;
+			NodeParams.AddIgnoredActor(Node);
+			if (World->LineTraceSingleByChannel(Hit,
+				FVector(Loc.X, Loc.Y, TraceStartZ), FVector(Loc.X, Loc.Y, TraceEndZ),
+				ECC_Visibility, NodeParams))
+			{
+				Node->SetActorLocation(FVector(Loc.X, Loc.Y, Hit.ImpactPoint.Z));
+				Node->MarkPackageDirty();
+				++NodesReGrounded;
+			}
+			else
+			{
+				++NodesMissed;
+			}
+		}
+
+		// PlayerStart'i vadi tabanina oturt (+120 UU kapsul payi, Task 5 ile ayni offset).
+		int32 PlayerStartsReGrounded = 0;
+		for (TActorIterator<APlayerStart> It(World); It; ++It)
+		{
+			APlayerStart* Start = *It;
+			if (!Start)
+			{
+				continue;
+			}
+			const FVector Loc = Start->GetActorLocation();
+			FHitResult Hit;
+			FCollisionQueryParams StartParams;
+			StartParams.AddIgnoredActor(Start);
+			if (World->LineTraceSingleByChannel(Hit,
+				FVector(Loc.X, Loc.Y, TraceStartZ), FVector(Loc.X, Loc.Y, TraceEndZ),
+				ECC_Visibility, StartParams))
+			{
+				Start->SetActorLocation(FVector(Loc.X, Loc.Y, Hit.ImpactPoint.Z + 120.0));
+				Start->MarkPackageDirty();
+				++PlayerStartsReGrounded;
+			}
+		}
+
+		UE_LOG(LogSurvival, Log,
+			TEXT("survival_reground_nodes: %d hasat dugumu + %d PlayerStart yeniden oturtuldu (%d trace-yok)"),
+			NodesReGrounded, PlayerStartsReGrounded, NodesMissed);
+		UE_LOG(LogSurvival, Log,
+			TEXT("survival_reground_nodes: harita HENUZ KAYDEDILMEDI — save_assets cagir"));
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCmdRegroundActors(
+		TEXT("survival_reground_nodes"),
+		TEXT("Tum hasat dugumlerini + PlayerStart'i mevcut arazi yuzeyine yeniden oturtur (arazi yeniden uretildikten sonra)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda(&RegroundActors));
 }
 
 #endif // WITH_EDITOR

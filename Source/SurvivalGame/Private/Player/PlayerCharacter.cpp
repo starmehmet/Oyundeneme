@@ -7,6 +7,7 @@
 #include "Player/HealthComponent.h"
 #include "UI/HUDController.h"
 #include "Save/SaveGameManager.h"
+#include "Weather/WeatherSimulation.h"
 #include "SurvivalGame.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
@@ -84,6 +85,21 @@ void APlayerCharacter::HandleDeath()
 	// PlayerCharacter'in kendi spawn varsayilanina (37 derece) sifirlamak bu dongueyu kirar —
 	// baska bir olum sebebi eklenirse bu varsayim yeniden degerlendirilmeli.
 	SetBodyTemperature(37.0f);
+
+	// Ölüm-döngüsü kök nedeni (playtest bulgusu, 2026-08-14): vücut sıcaklığını sıfırlamak ANLIK
+	// bir ölüm sebebini kırar, ama sebep KALICIYSA (kar fırtınası -10°C) sıcaklık ~8sn'de tekrar
+	// düşüp yeniden öldürür — üstelik AutoSave fırtına anında alındıysa RevertToLastSave her
+	// seferinde fırtınalı kaydı geri yükler → sonsuz ölüm→revert döngüsü (canlı gözlemlendi).
+	// Havayı da Clear'a çekmek ortamsal sebebi kaldırır (aynı gerekçe: kod tabanındaki TEK hasar
+	// kaynağı hipotermi/aşırı-sıcak, o da havadan türer). SetBodyTemperature ile aynı desende
+	// savunmacı sıfırlama; yeni bir hasar kaynağı eklenirse bu varsayım yeniden değerlendirilmeli.
+	if (GI)
+	{
+		if (UWeatherSimulation* WeatherSim = GI->GetSubsystem<UWeatherSimulation>())
+		{
+			WeatherSim->ForceWeather(EWeatherCondition::Clear);
+		}
+	}
 }
 
 void APlayerCharacter::ApplyMoveInput(const FVector2D& AxisValue)

@@ -1,0 +1,188 @@
+﻿#include "Weather/SnowVfxSubsystem.h"
+#include "Weather/WeatherSimulation.h"
+#include "Weather/WeatherTypes.h"
+#include "SurvivalGame.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
+#include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
+
+namespace
+{
+	// Kutu boyutlari ve dusme parametreleri (kamera-goreli).
+	constexpr int32 FlakeCount = 500;
+	constexpr double BoxHalfXY = 1600.0;   // yatay yari-genislik (UU)
+	constexpr double SpawnTopMin = 700.0;  // kameranin ustunde dogum araligi
+	constexpr double SpawnTopMax = 1500.0;
+	constexpr double KillBelow = 500.0;    // kameranin bu kadar altina dusunce yeniden dogar
+	constexpr double FallSpeed = 260.0;    // UU/sn
+	constexpr double DriftX = 40.0;        // hafif ruzgar suruklemesi (UU/sn)
+	constexpr double DriftY = 25.0;
+	constexpr float FlakeScale = 0.045f;   // engine kupu 100 UU -> ~4.5 UU tane
+
+	FVector RandomFlakeAround(const FVector& Cam)
+	{
+		return Cam + FVector(
+			FMath::FRandRange(-BoxHalfXY, BoxHalfXY),
+			FMath::FRandRange(-BoxHalfXY, BoxHalfXY),
+			FMath::FRandRange(SpawnTopMin, SpawnTopMax));
+	}
+}
+
+void USnowVfxSubsystem::EnsureInitialized()
+{
+	if (bInitialized)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Kar tanelerini tutan gorunmez host aktoru.
+	FActorSpawnParameters Params;
+	Params.ObjectFlags |= RF_Transient;   // kaydedilmez (saf VFX)
+	SnowHost = World->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity, Params);
+	if (!SnowHost)
+	{
+		UE_LOG(LogSurvivalWeather, Warning, TEXT("SnowVfx: host aktor spawn edilemedi"));
+		return;
+	}
+#if WITH_EDITOR
+	SnowHost->SetActorLabel(TEXT("SnowVfxHost"));
+#endif
+
+	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	if (!Cube)
+	{
+		UE_LOG(LogSurvivalWeather, Warning, TEXT("SnowVfx: engine kupu yuklenemedi"));
+		return;
+	}
+
+	SnowISM = NewObject<UInstancedStaticMeshComponent>(SnowHost);
+	SnowISM->SetStaticMesh(Cube);
+	SnowISM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SnowISM->SetCastShadow(false);
+	SnowISM->SetMobility(EComponentMobility::Movable);
+	if (BaseMat)
+	{
+		// BasicShapeMaterial'in "Color" vektor parametresini beyaza cek (MCP'siz beyaz tane).
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(BaseMat, SnowHost);
+		if (MID)
+		{
+			MID->SetVectorParameterValue(TEXT("Color"), FLinearColor::White);
+			SnowISM->SetMaterial(0, MID);
+		}
+	}
+	SnowHost->SetRootComponent(SnowISM);
+	SnowISM->RegisterComponent();
+
+	FlakePositions.Reserve(FlakeCount);
+	bInitialized = true;
+	UE_LOG(LogSurvivalWeather, Log, TEXT("SnowVfx: hazir (%d tane havuzu, C++ partikul)"), FlakeCount);
+}
+
+void USnowVfxSubsystem::SetSnowingActive(bool bNewActive, const FVector& CameraLocation)
+{
+	if (!SnowISM)
+	{
+		return;
+	}
+
+	if (bNewActive)
+	{
+		FlakePositions.Reset();
+		SnowISM->ClearInstances();
+		const FTransform Scale(FRotator::ZeroRotator, FVector::ZeroVector, FVector(FlakeScale));
+		for (int32 i = 0; i < FlakeCount; ++i)
+		{
+			const FVector P = RandomFlakeAround(CameraLocation);
+			FlakePositions.Add(P);
+			FTransform Xform = Scale;
+			Xform.SetLocation(P);
+			SnowISM->AddInstance(Xform, /*bWorldSpace*/ true);
+		}
+	}
+	else
+	{
+		FlakePositions.Reset();
+		SnowISM->ClearInstances();
+	}
+	bActive = bNewActive;
+}
+
+void USnowVfxSubsystem::Tick(float DeltaTime)
+{
+	EnsureInitialized();
+	if (!bInitialized || !SnowISM)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	UGameInstance* GI = World ? World->GetGameInstance() : nullptr;
+	if (!GI)
+	{
+		return;
+	}
+
+	// Hava durumu — yalnizca kar yagisi / kar firtinasinda aktif.
+	bool bShouldSnow = false;
+	if (UWeatherSimulation* Weather = GI->GetSubsystem<UWeatherSimulation>())
+	{
+		const EWeatherCondition Condition = Weather->GetCurrentState().Condition;
+		bShouldSnow = (Condition == EWeatherCondition::Snowing || Condition == EWeatherCondition::Blizzard);
+	}
+
+	// Kamera konumu (kutu bunu takip eder).
+	FVector CameraLocation = FVector::ZeroVector;
+	if (APlayerCameraManager* CamMgr = UGameplayStatics::GetPlayerCameraManager(World, 0))
+	{
+		CameraLocation = CamMgr->GetCameraLocation();
+	}
+
+	if (bShouldSnow != bActive)
+	{
+		SetSnowingActive(bShouldSnow, CameraLocation);
+	}
+	if (!bActive)
+	{
+		return;
+	}
+
+	// Blizzard'da daha hizli/yogun dusme hissi: firtinada dusus ve suruklemeyi biraz artir.
+	const double SpeedMul = 1.0;
+	const FTransform ScaleOnly(FRotator::ZeroRotator, FVector::ZeroVector, FVector(FlakeScale));
+	const int32 Num = FlakePositions.Num();
+	for (int32 i = 0; i < Num; ++i)
+	{
+		FVector& P = FlakePositions[i];
+		P.Z -= FallSpeed * SpeedMul * DeltaTime;
+		P.X += DriftX * DeltaTime;
+		P.Y += DriftY * DeltaTime;
+
+		// Kutudan ciktiysa (asagi dustu ya da kameradan yatayda uzaklasti) tepeden yeniden dogur.
+		const double DX = P.X - CameraLocation.X;
+		const double DY = P.Y - CameraLocation.Y;
+		if (P.Z < CameraLocation.Z - KillBelow ||
+			FMath::Abs(DX) > BoxHalfXY * 1.4 || FMath::Abs(DY) > BoxHalfXY * 1.4)
+		{
+			P = RandomFlakeAround(CameraLocation);
+		}
+
+		FTransform Xform = ScaleOnly;
+		Xform.SetLocation(P);
+		// Render durumunu yalnizca son tanede bir kez isaretle (kare basi tek render guncellemesi).
+		SnowISM->UpdateInstanceTransform(i, Xform, /*bWorldSpace*/ true,
+			/*bMarkRenderStateDirty*/ (i == Num - 1), /*bTeleport*/ true);
+	}
+}

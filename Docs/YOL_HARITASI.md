@@ -66,6 +66,33 @@
 
 ---
 
+## İÇERİK & OYNANIŞ BOŞLUKLARI — Alpha-sonrası backlog
+
+> **2026-08-16 oynama değerlendirmesi.** Simülasyon çekirdeği (Sistem 1–29) ✅ ve test-yeşil (60/60); buradaki maddeler "sim iskeleti" ile "satılabilir oyun" arasındaki farktır. Öncelik operatöre bırakıldı.
+> İşaretler: ⬜ hiç yok · 🟨 kısmen (motor hazır / içerik yok) · 🔵 bilinçli ertelendi (ADR var).
+
+### A · Oyuncu-dönük katman (en görünür — konsol-komutu bağımlılığını kaldırır)
+- [ ] ⬜ **UI/HUD içeriği (WBP)** — Sistem #20 mimarisi ✅ ama tek bir Widget Blueprint yok. Gerekli: envanter ekranı, zanaat menüsü, inşaat paleti, kalıcı HUD (can/sıcaklık/ağırlık/kıtlık-alarmı). Şu an her şey konsol komutu (`give_item`/`craft_start`/`build_place`). **Oyunu "oyun" yapan en büyük tek adım.**
+- [ ] ⬜ **Oyun kabuğu: Ana menü + Duraklat + Ayarlar** — şu an doğrudan haritaya açılıyor; UI'den yeni-oyun/yükle/çık yok, grafik/ses/kontrol ayar ekranı yok. (Sistem #1'in "menü haritası düz `AGameModeBase` + `ResetForNewGame()` seam'i" ADR'si bu geçişi zaten öngörmüştü.)
+- [ ] ⬜ **Geri bildirim UI** — toast/uyarı yüzeyi (kıtlık alarmı, görev tamamlandı, hasar/soğuk). Delegate'ler zaten yayınlıyor, ekran yüzeyi yok.
+
+### B · Eksik survival direkleri
+- [ ] ⬜ **Açlık/susuzluk** — survival'ın kalbi. `PismisEt`/`Su` gibi tüketilebilirler `DT_Items`'ta VAR ama tüketen sistem yok; NPC'nin `Eating` durumu enum'da duruyor, hiç tetiklenmiyor. Altyapı (`UHealthComponent`, tüketilebilir öğeler) hazır — düşük maliyet/yüksek etki.
+- [ ] 🔵 **Ölüm/respawn akışı** — şu an son-kayıt-noktasına dönüş (ADR 2026-07-25, bilinçli). Cilalı ölüm ekranı + respawn seçenekleri gelecek işi.
+- [ ] 🔵 **Tehdit modeli kararı** — tek tehdit şu an hava. Gerçek survival genelde +tehdit (yaratık/yağmacı) ister VEYA bilinçli "barışçıl kurucu" tasarımı seçilir. Tasarım çatalı — karar verilmeli (avlanma zaten bu karara bağlı).
+
+### C · İçerik/varlık (motor hazır, sanat yok)
+- [ ] 🟨 **Ses içeriği** — Sistem #19 ✅ ama `Content/` sessiz (0 ses varlığı). Ayak sesi, rüzgar/kar ambiyansı, makine uğultusu, müzik, UI tıkı.
+- [ ] ⬜ **3B sanat + animasyon** — binalar/hasat düğümleri placeholder/Engine-Cube mesh, kar C++ küresi; karakter/NPC iskelet animasyonu (idle/yürü/çalış/hasat) yok.
+- [ ] ⬜ **Atmosfer & kar-dışı VFX** — gökyüzü/sis/post-process ile ruh hâli; yağmur/sis/ateş-duman/inşa-hasat efektleri (yalnız kar var).
+- [ ] 🔵 **Hayvanlar/avlanma** — Deri/Et/Kemik/Yağ dünyada yok; statik-düğüm modeline uymuyor, ayrı yaratık-AI gerektirir (ADR 2026-07-26, bilinçli ertelendi — Tehdit modeli kararına bağlı).
+
+### D · Yön & giriş
+- [ ] ⬜ **Hedef/ilerleme/tutorial** — oyuncuya "ne yapmalıyım" diyen hedef, görev zinciri, teknoloji ağacı/kilit-açma veya onboarding yok. Oyun şu an açık-uçlu bir kum havuzu.
+- [ ] ⬜ **Kontrolcü (gamepad) desteği** — Steam standardı; Enhanced Input altyapısı hazır ama gamepad eşlemesi + UI-navigasyonu yok.
+
+> **Zaten planda (Hafta 13–16, "eksik" değil — zamanlanmış):** Yerelleştirme TR+EN · Steamworks (başarım/cloud save) · Store sayfası/fragman · Beta geri bildirim döngüsü.
+
 ## KARAR KAYDI (ADR — Architecture Decision Record)
 
 > Önemli teknik kararları buraya ekle ki "neden böyleydi?" sorusu 6 ay sonra cevaplanabilsin.

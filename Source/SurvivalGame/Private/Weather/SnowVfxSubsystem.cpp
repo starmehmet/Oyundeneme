@@ -14,16 +14,17 @@
 
 namespace
 {
-	// Kutu boyutlari ve dusme parametreleri (kamera-goreli).
-	constexpr int32 FlakeCount = 500;
-	constexpr double BoxHalfXY = 1600.0;   // yatay yari-genislik (UU)
-	constexpr double SpawnTopMin = 700.0;  // kameranin ustunde dogum araligi
-	constexpr double SpawnTopMax = 1500.0;
-	constexpr double KillBelow = 500.0;    // kameranin bu kadar altina dusunce yeniden dogar
-	constexpr double FallSpeed = 260.0;    // UU/sn
-	constexpr double DriftX = 40.0;        // hafif ruzgar suruklemesi (UU/sn)
-	constexpr double DriftY = 25.0;
-	constexpr float FlakeScale = 0.045f;   // engine kupu 100 UU -> ~4.5 UU tane
+	// Kutu boyutlari ve dusme parametreleri (kamera-goreli). Yogunluk: taneler kameranin
+	// HEMEN cevresinde SIK olmali yoksa gorunmez (500 tane 3 km kutuda metrede-bir = "yagis yok").
+	constexpr int32 FlakeCount = 3000;
+	constexpr double BoxHalfXY = 750.0;    // yatay yari-genislik (UU) — kameraya siki
+	constexpr double SpawnTopMin = 300.0;  // kameranin ustunde dogum araligi
+	constexpr double SpawnTopMax = 950.0;
+	constexpr double KillBelow = 350.0;    // kameranin bu kadar altina dusunce yeniden dogar
+	constexpr double FallSpeed = 280.0;    // UU/sn
+	constexpr double DriftX = 45.0;        // hafif ruzgar suruklemesi (UU/sn)
+	constexpr double DriftY = 30.0;
+	constexpr float FlakeScale = 0.09f;    // engine kupu 100 UU -> ~9 UU tane (gorunur)
 
 	FVector RandomFlakeAround(const FVector& Cam)
 	{
@@ -143,11 +144,20 @@ void USnowVfxSubsystem::Tick(float DeltaTime)
 		bShouldSnow = (Condition == EWeatherCondition::Snowing || Condition == EWeatherCondition::Blizzard);
 	}
 
-	// Kamera konumu (kutu bunu takip eder).
+	// Kamera konumu (kutu bunu takip eder). Kamera gecersizse (henuz kurulmadi -> orijin)
+	// oyuncu pawn'ina dus — yoksa taneler orijinde dogar, oyuncu vadinin dibinde (~ -7000 Z)
+	// kalir ve kari HIC gormez.
 	FVector CameraLocation = FVector::ZeroVector;
 	if (APlayerCameraManager* CamMgr = UGameplayStatics::GetPlayerCameraManager(World, 0))
 	{
 		CameraLocation = CamMgr->GetCameraLocation();
+	}
+	if (CameraLocation.IsNearlyZero())
+	{
+		if (const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(World, 0))
+		{
+			CameraLocation = PlayerPawn->GetActorLocation() + FVector(0.0, 0.0, 150.0);
+		}
 	}
 
 	if (bShouldSnow != bActive)

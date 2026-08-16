@@ -16,7 +16,7 @@ namespace
 {
 	// Kutu boyutlari ve dusme parametreleri (kamera-goreli). Yogunluk: taneler kameranin
 	// HEMEN cevresinde SIK olmali yoksa gorunmez (500 tane 3 km kutuda metrede-bir = "yagis yok").
-	constexpr int32 FlakeCount = 3000;
+	constexpr int32 FlakeCount = 2200;     // kure kup'ten cok daha yuksek poligonlu — sayi biraz dusuk
 	constexpr double BoxHalfXY = 750.0;    // yatay yari-genislik (UU) — kameraya siki
 	constexpr double SpawnTopMin = 300.0;  // kameranin ustunde dogum araligi
 	constexpr double SpawnTopMax = 950.0;
@@ -24,7 +24,7 @@ namespace
 	constexpr double FallSpeed = 280.0;    // UU/sn
 	constexpr double DriftX = 45.0;        // hafif ruzgar suruklemesi (UU/sn)
 	constexpr double DriftY = 30.0;
-	constexpr float FlakeScale = 0.09f;    // engine kupu 100 UU -> ~9 UU tane (gorunur)
+	constexpr float FlakeScale = 0.05f;    // engine kuresi 100 UU -> ~5 UU yuvarlak tane
 
 	FVector RandomFlakeAround(const FVector& Cam)
 	{
@@ -61,16 +61,18 @@ void USnowVfxSubsystem::EnsureInitialized()
 	SnowHost->SetActorLabel(TEXT("SnowVfxHost"));
 #endif
 
-	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	// Kure kullan (kup DEGIL) — kupler her aciden KARE gorunuyordu ("kareler yagiyor"); kure her
+	// aciden yuvarlak, kar tanesine cok daha yakin.
+	UStaticMesh* FlakeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
-	if (!Cube)
+	if (!FlakeMesh)
 	{
-		UE_LOG(LogSurvivalWeather, Warning, TEXT("SnowVfx: engine kupu yuklenemedi"));
+		UE_LOG(LogSurvivalWeather, Warning, TEXT("SnowVfx: engine kuresi yuklenemedi"));
 		return;
 	}
 
 	SnowISM = NewObject<UInstancedStaticMeshComponent>(SnowHost);
-	SnowISM->SetStaticMesh(Cube);
+	SnowISM->SetStaticMesh(FlakeMesh);
 	SnowISM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SnowISM->SetCastShadow(false);
 	SnowISM->SetMobility(EComponentMobility::Movable);

@@ -16,15 +16,21 @@ namespace
 {
 	// Kutu boyutlari ve dusme parametreleri (kamera-goreli). Yogunluk: taneler kameranin
 	// HEMEN cevresinde SIK olmali yoksa gorunmez (500 tane 3 km kutuda metrede-bir = "yagis yok").
-	constexpr int32 FlakeCount = 2200;     // kure kup'ten cok daha yuksek poligonlu — sayi biraz dusuk
-	constexpr double BoxHalfXY = 750.0;    // yatay yari-genislik (UU) — kameraya siki
+	constexpr int32 FlakeCount = 3000;     // ince + yogun kar
+	constexpr double BoxHalfXY = 800.0;    // yatay yari-genislik (UU) — kameraya siki
 	constexpr double SpawnTopMin = 300.0;  // kameranin ustunde dogum araligi
-	constexpr double SpawnTopMax = 950.0;
+	constexpr double SpawnTopMax = 1000.0;
 	constexpr double KillBelow = 350.0;    // kameranin bu kadar altina dusunce yeniden dogar
-	constexpr double FallSpeed = 280.0;    // UU/sn
-	constexpr double DriftX = 45.0;        // hafif ruzgar suruklemesi (UU/sn)
-	constexpr double DriftY = 30.0;
-	constexpr float FlakeScale = 0.05f;    // engine kuresi 100 UU -> ~5 UU yuvarlak tane
+	// Yavas + varyasyonlu dusus (gercek kar tekduze/hizli degil, savrularak yumusak duser).
+	constexpr double FallSpeedMin = 130.0; // UU/sn
+	constexpr double FallSpeedMax = 210.0;
+	constexpr double DriftX = 22.0;        // hafif ruzgar suruklemesi (UU/sn)
+	constexpr double DriftY = 14.0;
+	constexpr double SwayFreq = 1.6;       // yatay salinim frekansi (rad/sn)
+	constexpr double SwayAmp = 38.0;       // salinim genligi (UU/sn) — savrulma hissi
+	// Boyut karisimi: cogu ince, azi biraz iri (dogal kar dagilimi).
+	constexpr float FlakeScaleMin = 0.018f; // ~1.8 UU
+	constexpr float FlakeScaleMax = 0.05f;  // ~5 UU
 
 	FVector RandomFlakeAround(const FVector& Cam)
 	{
@@ -104,20 +110,29 @@ void USnowVfxSubsystem::SetSnowingActive(bool bNewActive, const FVector& CameraL
 	if (bNewActive)
 	{
 		FlakePositions.Reset();
+		FlakeSpeeds.Reset();
+		FlakeScales.Reset();
+		FlakePhases.Reset();
 		SnowISM->ClearInstances();
-		const FTransform Scale(FRotator::ZeroRotator, FVector::ZeroVector, FVector(FlakeScale));
 		for (int32 i = 0; i < FlakeCount; ++i)
 		{
 			const FVector P = RandomFlakeAround(CameraLocation);
+			// FRand^2 -> kucuge egilimli dagilim (cogu ince tane, azi biraz iri).
+			const float R = FMath::FRand();
+			const float FlakeScale = FlakeScaleMin + (FlakeScaleMax - FlakeScaleMin) * R * R;
 			FlakePositions.Add(P);
-			FTransform Xform = Scale;
-			Xform.SetLocation(P);
-			SnowISM->AddInstance(Xform, /*bWorldSpace*/ true);
+			FlakeSpeeds.Add(FMath::FRandRange(static_cast<float>(FallSpeedMin), static_cast<float>(FallSpeedMax)));
+			FlakeScales.Add(FlakeScale);
+			FlakePhases.Add(FMath::FRandRange(0.0f, 2.0f * PI));
+			SnowISM->AddInstance(FTransform(FRotator::ZeroRotator, P, FVector(FlakeScale)), /*bWorldSpace*/ true);
 		}
 	}
 	else
 	{
 		FlakePositions.Reset();
+		FlakeSpeeds.Reset();
+		FlakeScales.Reset();
+		FlakePhases.Reset();
 		SnowISM->ClearInstances();
 	}
 	bActive = bNewActive;
@@ -171,16 +186,17 @@ void USnowVfxSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
-	// Blizzard'da daha hizli/yogun dusme hissi: firtinada dusus ve suruklemeyi biraz artir.
-	const double SpeedMul = 1.0;
-	const FTransform ScaleOnly(FRotator::ZeroRotator, FVector::ZeroVector, FVector(FlakeScale));
+	// Salinim icin zaman birikimi (Date::Now yok — resume-guvenli, Tick'te DeltaTime toplanir).
+	ElapsedTime += DeltaTime;
 	const int32 Num = FlakePositions.Num();
 	for (int32 i = 0; i < Num; ++i)
 	{
 		FVector& P = FlakePositions[i];
-		P.Z -= FallSpeed * SpeedMul * DeltaTime;
-		P.X += DriftX * DeltaTime;
-		P.Y += DriftY * DeltaTime;
+		P.Z -= FlakeSpeeds[i] * DeltaTime;
+		// Yatay salinim: her tane kendi faziyla saga-sola savrulur (duz cizgi degil, floaty kar hissi).
+		const double Phase = ElapsedTime * SwayFreq + FlakePhases[i];
+		P.X += (DriftX + FMath::Sin(Phase) * SwayAmp) * DeltaTime;
+		P.Y += (DriftY + FMath::Cos(Phase) * SwayAmp) * DeltaTime;
 
 		// Kutudan ciktiysa (asagi dustu ya da kameradan yatayda uzaklasti) tepeden yeniden dogur.
 		const double DX = P.X - CameraLocation.X;
@@ -189,12 +205,15 @@ void USnowVfxSubsystem::Tick(float DeltaTime)
 			FMath::Abs(DX) > BoxHalfXY * 1.4 || FMath::Abs(DY) > BoxHalfXY * 1.4)
 		{
 			P = RandomFlakeAround(CameraLocation);
+			// Yeniden dogunca boyut/hiz/faz tazele — havuz zamanla tekduzeye kaymasin.
+			const float R = FMath::FRand();
+			FlakeScales[i] = FlakeScaleMin + (FlakeScaleMax - FlakeScaleMin) * R * R;
+			FlakeSpeeds[i] = FMath::FRandRange(static_cast<float>(FallSpeedMin), static_cast<float>(FallSpeedMax));
+			FlakePhases[i] = FMath::FRandRange(0.0f, 2.0f * PI);
 		}
 
-		FTransform Xform = ScaleOnly;
-		Xform.SetLocation(P);
 		// Render durumunu yalnizca son tanede bir kez isaretle (kare basi tek render guncellemesi).
-		SnowISM->UpdateInstanceTransform(i, Xform, /*bWorldSpace*/ true,
-			/*bMarkRenderStateDirty*/ (i == Num - 1), /*bTeleport*/ true);
+		SnowISM->UpdateInstanceTransform(i, FTransform(FRotator::ZeroRotator, P, FVector(FlakeScales[i])),
+			/*bWorldSpace*/ true, /*bMarkRenderStateDirty*/ (i == Num - 1), /*bTeleport*/ true);
 	}
 }

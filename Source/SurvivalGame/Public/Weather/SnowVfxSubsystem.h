@@ -28,7 +28,10 @@ public:
 	// FTickableGameObject
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(USnowVfxSubsystem, STATGROUP_Tickables); }
-	virtual bool IsTickable() const override { return bInitialized; }
+	// HER ZAMAN tickable — Tick'in kendisi EnsureInitialized ile lazy kurulum yapar. bInitialized
+	// dondurmek tavuk-yumurta olurdu (bInitialized yalniz Tick icinde set edilir -> hic tick etmez).
+	// Oyun-disi dunyalar DoesSupportWorldType ile zaten eleniyor.
+	virtual bool IsTickable() const override { return true; }
 	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Conditional; }
 
 	// Yalnizca gercek oyun/PIE dunyalarinda calis (editor preview / inspector dunyalarinda degil).
